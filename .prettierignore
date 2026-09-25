@@ -1,0 +1,4 @@
+package-lock.json
+wasm/pkg/
+*.md
+!/README.md

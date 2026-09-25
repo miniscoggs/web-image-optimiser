@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="240"
+   height="160"
+   viewBox="0 0 240 160"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   sodipodi:docname="editor-metadata.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="2.8284271"
+     inkscape:cx="120.20815"
+     inkscape:cy="80.140388"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1" />
+  <metadata
+     id="metadata1">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Fixture Author</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:date>2024-05-01</dc:date>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <!-- Layer 1: background, mountain and sun -->
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#2a7fff;fill-opacity:1.00000000;stroke:none;stroke-width:1.00000000"
+       id="rect1"
+       width="240.00000000"
+       height="160.00000000"
+       x="0.00000000"
+       y="0.00000000" />
+    <!-- TODO: tidy the path nodes before export -->
+    <path
+       style="fill:#ffcc00;fill-opacity:1.00000000;stroke:#1a1a1a;stroke-width:2.12345678;stroke-linejoin:round;stroke-opacity:1.00000000"
+       d="M 40.123456789,130.987654321 L 120.000000001,30.456789012 L 199.876543210,130.135792468 Z"
+       id="path1"
+       sodipodi:nodetypes="cccc" />
+    <circle
+       style="fill:#ff5555;fill-opacity:0.85432100;stroke:none"
+       id="circle1"
+       cx="186.49999999"
+       cy="38.33333333"
+       r="18.66666667" />
+  </g>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="120" viewBox="0 0 200 120">
+  <style>
+    #badge { fill: #1d4ed8; }
+    #star-1 { fill: #facc15; }
+    .outline { stroke: #0f172a; stroke-width: 2; }
+  </style>
+  <defs>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <path id="star" d="M0,-20 L5.878,-8.09 L19.021,-6.18 L9.511,3.09 L11.756,16.18 L0,10 L-11.756,16.18 L-9.511,3.09 L-19.021,-6.18 L-5.878,-8.09 Z"/>
+  </defs>
+  <rect id="badge" class="outline" x="4" y="4" width="192" height="112" rx="16"/>
+  <rect x="4" y="4" width="192" height="56" rx="16" fill="url(#shine)"/>
+  <use id="star-1" href="#star" x="50" y="64"/>
+  <use href="#star" x="100" y="64" fill="#f97316"/>
+  <use xlink:href="#star" x="150" y="64" fill="#22c55e"/>
+</svg>
