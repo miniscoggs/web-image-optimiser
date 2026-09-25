@@ -1,0 +1,45 @@
+{
+  "tool": "libjxl 0.12.0 ssimulacra2",
+  "sources": {
+    "butterfly.png": "fixtures/photo-butterfly.jpg resized to 512 px wide (CC0-1.0)",
+    "screenshot.png": "copy of fixtures/screenshot.png (MIT)"
+  },
+  "pairs": [
+    {
+      "reference": "butterfly.png",
+      "distorted": "butterfly-q30.webp",
+      "quality": 30,
+      "score": 54.75220803
+    },
+    {
+      "reference": "butterfly.png",
+      "distorted": "butterfly-q60.webp",
+      "quality": 60,
+      "score": 68.08273621
+    },
+    {
+      "reference": "butterfly.png",
+      "distorted": "butterfly-q90.webp",
+      "quality": 90,
+      "score": 82.66431329
+    },
+    {
+      "reference": "screenshot.png",
+      "distorted": "screenshot-q30.webp",
+      "quality": 30,
+      "score": 71.99764912
+    },
+    {
+      "reference": "screenshot.png",
+      "distorted": "screenshot-q60.webp",
+      "quality": 60,
+      "score": 78.93231521
+    },
+    {
+      "reference": "screenshot.png",
+      "distorted": "screenshot-q90.webp",
+      "quality": 90,
+      "score": 84.14348225
+    }
+  ]
+}

@@ -28,7 +28,8 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\"",
+    "build:wasm": "node wasm/build.mjs",
     "prepack": "npm run build",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
