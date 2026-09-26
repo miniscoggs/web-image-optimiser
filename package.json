@@ -34,7 +34,9 @@
     "prepack": "npm run build",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
-    "test": "vitest run && tsc -p tsconfig.test.json --noEmit"
+    "test": "vitest run && tsc -p tsconfig.test.json --noEmit",
+    "test:fast": "vitest run --exclude \"tests/golden/**\" && tsc -p tsconfig.test.json --noEmit",
+    "test:golden": "vitest run tests/golden/"
   },
   "dependencies": {
     "sharp": "^0.35.4",

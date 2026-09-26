@@ -69,6 +69,17 @@ A stage that rejects a file throws `OptimiserError` (`src/schema/`) with a code 
 - **Destinations** (`destination.ts`): an output is named after the input, keeping the input's extension when it fits the format. A path is the input when its device and inode match, which sees through case, links and `..`; where the file system reports no inode, the resolved paths are compared, case-insensitively on Windows and macOS. An unchanged output at the input's own path is neither written nor a clash.
 - **Writes** (`writeOutputs.ts`) go to `.<name>.wio-<hex>.tmp` in the destination folder, and are renamed only once all of a file's outputs are written. Temp files are removed in `finally`, and any failure except an abort becomes `E_WRITE`.
 
+## CI
+
+`.github/workflows/ci.yml` runs on pull requests, pushes to `main` and manual runs. `scripts/ci-scope.mjs` decides what each run needs:
+
+- **Every run** lints, builds and runs `npm run test:fast` on Ubuntu, Windows, macOS arm64 and macOS Intel with Node 24, and on Ubuntu with Node 26.
+- **A pull request that changes engine files** (`src/`, `wasm/`, `fixtures/`, `tests/golden/`, `package.json` or the lockfile) also runs `npm run test:golden` on Ubuntu.
+- **A release pull request**, one that changes the version in `package.json`, runs the golden tests on every OS, and `scripts/check-release.mjs` checks that the version is higher than the base branch's, the lockfile matches it, and `CHANGELOG.md` has a `## <version>` heading.
+- **A manual run** (`gh workflow run ci.yml --ref <branch>`) runs the golden tests on every OS, for an engine change that needs checking on every platform before its release.
+- **A push to `main`** runs only the fast checks, because its pull request already ran the rest.
+- **"CI passed"** needs every other job, and passes when each one passed or wasn't needed. It's the one check to require: a skipped job counts as passing for a required check, so the individual jobs must not be required.
+
 ## Golden tests
 
 `tests/golden/` is the engine contract. `goldenMatrix.ts` runs every fixture through every mode with `optimiseFile`, checks every rule the pipeline promises (sizes, metadata, dimensions, alpha, warnings, the suite chain, the JSON contract, a recomputed score), and compares each result with `golden.json`: status, error and warning codes, roles, formats and methods exactly, quality within 3, size within 10%.

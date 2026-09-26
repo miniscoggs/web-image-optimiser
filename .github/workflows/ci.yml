@@ -1,9 +1,15 @@
 name: CI
 
+# Every run lints, builds and runs the fast tests on every leg. The golden tests, which encode and
+# score every fixture in every mode, run on Ubuntu when a pull request changes engine files, and on
+# every OS for a release pull request (one that changes the version) or a manual run. "CI passed"
+# is the one check to require.
+
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,8 +19,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+  scope:
+    name: scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      golden-os: ${{ steps.scope.outputs.golden-os }}
+      release: ${{ steps.scope.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # a pull request's merge commit and the base branch it merges onto
+      - id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+        run: node scripts/ci-scope.mjs "$EVENT" >> "$GITHUB_OUTPUT"
+
+  checks:
+    name: checks (${{ matrix.os }}, node ${{ matrix.node }})
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +47,7 @@ jobs:
           - os: ubuntu-latest
             node: 26
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45 # the golden tests encode and score every fixture in every mode; ~3.5 min on a 20-thread desktop
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,4 +59,55 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
-      - run: npm test
+      - run: npm run test:fast
+
+  release-version:
+    name: release version
+    needs: scope
+    if: needs.scope.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-release.mjs
+
+  golden:
+    name: golden (${{ matrix.os }})
+    needs: scope
+    if: needs.scope.outputs.golden-os != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.scope.outputs.golden-os) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45 # about 20 min on the intel mac runner
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:golden
+
+  passed:
+    name: CI passed
+    if: always()
+    needs: [scope, checks, release-version, golden]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every job passed or wasn't needed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "Every job passed or wasn't needed"

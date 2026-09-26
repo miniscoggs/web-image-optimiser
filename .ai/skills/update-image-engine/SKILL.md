@@ -20,7 +20,7 @@ The golden tests in `tests/golden/` pin what `optimiseFile` decides for every fi
 4. If a golden test fails, read each failure: it shows only the values out of tolerance. Decide whether the change is acceptable. A smaller file at the same target is usually welcome; a lost output, a new warning or a quality jump needs a reason.
 5. Regenerate the expectations with `node scripts/update-golden.mjs` (after `npm run build`), and review `git diff tests/golden/golden.json` line by line. Every changed decision is an API change.
 6. Under **Unreleased** in `CHANGELOG.md`, record the engine's new version and every changed decision (the fixture, the mode, and what changed).
-7. Push, and check that every CI leg passes. Encoded bytes can differ between platforms, so a failure on one leg only is a platform difference to investigate. Don't widen the tolerances to hide it.
+7. Push, then run CI manually on the branch with `gh workflow run ci.yml --ref <branch>`: a pull request runs the golden tests only on Ubuntu, and a manual run covers every OS. Check that every leg passes. Encoded bytes can differ between platforms, so a failure on one leg only is a platform difference to investigate. Don't widen the tolerances to hide it.
 
 ## Notes
 

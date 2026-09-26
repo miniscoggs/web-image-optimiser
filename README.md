@@ -84,7 +84,7 @@ The encoder settings come from a benchmark, described in [docs/encoding.md](./do
 
 Test images live in `fixtures/`, and `fixtures/manifest.json` records each one's traits, source and licence. `node fixtures/generate.mjs` rebuilds the synthetic fixtures and the manifest; add `--photos` to re-download the photos and derive them again. The output bytes vary by platform and libvips version, so run it only when changing a fixture, and review every file it rewrites before committing.
 
-The golden tests in `tests/golden/` run every fixture through every mode and compare what the optimiser decides with `tests/golden/golden.json`, allowing quality within 3 and size within 10%. They take a few minutes, most of it on the four photos. A change to `golden.json` is a change to what the tool outputs: after `npm run build`, `node scripts/update-golden.mjs` rewrites it, and the `update-image-engine` skill in `.ai/skills/` covers when and how.
+The golden tests in `tests/golden/` run every fixture through every mode and compare what the optimiser decides with `tests/golden/golden.json`, allowing quality within 3 and size within 10%. They take a few minutes, most of it on the four photos, so `npm run test:fast` runs everything else in about 20 seconds. CI runs them on Ubuntu for pull requests that change engine files, and on every OS for release pull requests. A change to `golden.json` is a change to what the tool outputs: after `npm run build`, `node scripts/update-golden.mjs` rewrites it, and the `update-image-engine` skill in `.ai/skills/` covers when and how.
 
 ## Licence
 

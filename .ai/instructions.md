@@ -10,6 +10,7 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 - After a change, review it for simplicity, then update `README.md`, `docs/*.md` and `.ai/` in the same change so no doc describes behaviour the code doesn't have.
 - When sharp, SVGO or another dependency falls short, prefer fixing or reporting it upstream. Keep any local workaround small, with a comment linking the upstream issue.
 - Follow only this repo's steering, not that of other projects open alongside it.
+- Add a line under **Unreleased** in `CHANGELOG.md` for every change a user of the package would notice, including every change to `tests/golden/golden.json`. Don't bump the version in an ordinary pull request: a release pull request does that (see the CI section of `design-patterns.md`).
 
 ## Commands
 
@@ -18,7 +19,9 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 | `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm`, and write the JSON Schema files into `dist/schema` |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
-| `npm test`                   | Vitest, then a type-check of `src/` and `tests/`                                                         |
+| `npm test`                   | Every test, then a type-check of `src/` and `tests/`. The golden tests make it take a few minutes         |
+| `npm run test:fast`          | Every test except the golden tests (about 20 s), then the type-check. Use it while iterating              |
+| `npm run test:golden`        | Only the golden tests in `tests/golden/`                                                                 |
 | `npm run build:wasm`         | Rebuild `wasm/pkg` in the pinned Docker image (needs a running Docker daemon, no local Rust). Run it after any change under `wasm/`, and commit the result |
 | `node wasm/bench.mjs`        | Time one score at 1 MP and 12 MP. Re-run it after changing the WASM build, and update the numbers in `design-patterns.md` |
 | `node scripts/bench-encoders.mjs [--target 80]` | After `npm run build`, compare AVIF and WebP encoder settings by the bytes each needs to reach the target score. Re-run it after bumping sharp, and update `docs/encoding.md` and the constants in `src/encode/` |
