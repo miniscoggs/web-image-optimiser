@@ -1,7 +1,7 @@
-import { Worker } from "node:worker_threads";
 import failedResult from "./failedResult.js";
 import optimiseFile from "./optimiseFile.js";
 import type { PipelineFileResult, PipelineOptions } from "./types.js";
+import createWorkerSlot from "./workerSlot.js";
 
 /**
  * One file for an executor to optimise.
@@ -66,64 +66,36 @@ function createInProcessExecutor(): FileExecutor {
 
 /**
  * Creates an executor that runs files on a worker thread of its own, so scoring, which blocks
- * its thread, runs in parallel with other lanes. A worker that crashes fails its file with
- * `E_INTERNAL` and is replaced on the next run.
+ * its thread, runs in parallel with other lanes. A worker that crashes, or can't start, fails
+ * its file with `E_INTERNAL` and is replaced on the next run.
  *
  * @param workerUrl - The worker module.
  */
 function createWorkerExecutor(workerUrl: URL): FileExecutor {
-  let worker: Worker | undefined;
-
-  const run = (task: FileTask, signal: AbortSignal) => {
-    if (signal.aborted) {
-      return Promise.reject(signal.reason as Error);
-    }
-
-    const current = (worker ??= new Worker(workerUrl));
-
-    return new Promise<PipelineFileResult>((resolve, reject) => {
-      const abort = () => {
-        current.postMessage({ type: "abort" } satisfies WorkerRequest);
-      };
-      const settle = () => {
-        signal.removeEventListener("abort", abort);
-        current.off("message", onMessage);
-        current.off("error", onCrash);
-        current.off("exit", onCrash);
-      };
-      const onMessage = (reply: WorkerReply) => {
-        settle();
-        if (reply.type === "aborted") {
-          reject(signal.reason as Error);
-        } else {
-          resolve(reply.result);
-        }
-      };
-      const onCrash = (cause: Error | number) => {
-        const detail =
-          cause instanceof Error ? cause.message : `exit code ${cause}`;
-
-        settle();
-        worker = undefined;
-        void current.terminate();
-        resolve(
-          failedResult(task.path, "E_INTERNAL", `The worker stopped: ${detail}`)
-        );
-      };
-
-      signal.addEventListener("abort", abort, { once: true });
-      current.on("message", onMessage);
-      current.once("error", onCrash);
-      current.once("exit", onCrash);
-      current.postMessage({ type: "run", task } satisfies WorkerRequest);
-    });
-  };
+  const slot = createWorkerSlot(workerUrl);
 
   return {
-    run,
-    close: async () => {
-      await worker?.terminate();
+    run: async (task, signal) => {
+      signal.throwIfAborted();
+
+      const outcome = await slot.send<WorkerReply>(
+        { type: "run", task } satisfies WorkerRequest,
+        { signal, abort: { type: "abort" } satisfies WorkerRequest }
+      );
+
+      if (outcome.type === "crashed") {
+        return failedResult(
+          task.path,
+          "E_INTERNAL",
+          `The worker stopped: ${outcome.detail}`
+        );
+      }
+      if (outcome.reply.type === "aborted") {
+        throw signal.reason as Error;
+      }
+      return outcome.reply.result;
     },
+    close: slot.close,
   };
 }
 

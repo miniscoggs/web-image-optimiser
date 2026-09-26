@@ -1,12 +1,30 @@
-import { styleText } from "node:util";
-import type { MetricsVerdict } from "../metrics/index.js";
+import type { MetricsVerdict } from "../metrics/types.js";
+import type {
+  PipelineFileStatus,
+  PipelineOutput,
+  PipelineRunResult,
+} from "../pipeline/types.js";
 
-/**
- * A colour or modifier for {@link paint}.
- */
-type TextStyle = Parameters<typeof styleText>[0];
+// shared with the ui's browser bundle, so it imports only types
 
 const UNITS = ["kB", "MB", "GB"];
+
+const STATUS_LABELS = {
+  optimised: "optimised",
+  "kept-original": "kept original",
+  skipped: "skipped",
+  failed: "failed",
+} as const satisfies Record<PipelineFileStatus, string>;
+
+// the ssimulacra 2 readme's description of each band
+const VERDICT_MEANINGS = {
+  "visually-lossless": "not noticeable even in a flicker test at 1:1",
+  excellent: "not noticeable in an in-place comparison",
+  "very-high": "not noticeable side by side at 1:1",
+  high: "barely noticeable side by side",
+  noticeable: "slightly annoying artifacts",
+  obvious: "obvious artifacts",
+} as const satisfies Record<MetricsVerdict, string>;
 
 /**
  * Formats a size in bytes with three significant figures, in kB and MB of 1000 as browsers
@@ -39,28 +57,62 @@ function formatPercent(fraction: number) {
 }
 
 /**
- * Returns the style for a verdict: green where the loss isn't noticeable side by side, yellow
- * where it barely is, and red below.
+ * Describes how an output was made: its quality for a lossy encode, otherwise its method.
  *
- * @param verdict - The verdict.
+ * @param output - The output.
  */
-function verdictStyle(verdict: MetricsVerdict): TextStyle {
-  if (verdict === "high") {
-    return "yellow";
+function formatQuality(output: Pick<PipelineOutput, "method" | "quality">) {
+  if (output.quality === undefined) {
+    return output.method;
   }
-  return verdict === "noticeable" || verdict === "obvious" ? "red" : "green";
+  return output.method === "lossy"
+    ? `q${output.quality}`
+    : `${output.method} ${output.quality}`;
 }
 
 /**
- * Styles text for a terminal, or returns it as it is when colour is off.
+ * Rates a verdict: `good` where the loss isn't noticeable side by side, `fair` where it barely
+ * is, and `bad` below.
  *
- * @param text - The text.
- * @param style - The style.
- * @param color - Whether to add colour.
+ * @param verdict - The verdict.
  */
-function paint(text: string, style: TextStyle, color: boolean) {
-  return color ? styleText(style, text, { validateStream: false }) : text;
+function verdictRating(verdict: MetricsVerdict) {
+  if (verdict === "high") {
+    return "fair";
+  }
+  return verdict === "noticeable" || verdict === "obvious" ? "bad" : "good";
 }
 
-export { formatBytes, formatPercent, paint, verdictStyle };
-export type { TextStyle };
+/**
+ * Summarises a run's totals: how many files ended each way, and the bytes saved.
+ *
+ * @param totals - The run's totals.
+ */
+function formatTotals(totals: PipelineRunResult["totals"]) {
+  const counts = [
+    [totals.optimised, "optimised"],
+    [totals.keptOriginal, "kept original"],
+    [totals.skipped, "skipped"],
+    [totals.failed, "failed"],
+  ] as const;
+  const parts = counts
+    .filter(([count]) => count > 0)
+    .map(([count, label]) => `${count} ${label}`);
+  const files = `${totals.files} ${totals.files === 1 ? "file" : "files"}`;
+  const saved =
+    totals.inputBytes === 0
+      ? ""
+      : ` ${formatBytes(totals.inputBytes)} -> ${formatBytes(totals.outputBytes)}, ${formatPercent(totals.saving)} smaller.`;
+
+  return `${files}: ${parts.join(", ")}.${saved}`;
+}
+
+export {
+  STATUS_LABELS,
+  VERDICT_MEANINGS,
+  formatBytes,
+  formatPercent,
+  formatQuality,
+  formatTotals,
+  verdictRating,
+};

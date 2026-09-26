@@ -38,6 +38,8 @@ A folder gives the images at its top level; `--recursive` adds its subfolders, w
 
 Scoring takes about a second per megapixel, and each format's search scores several times, so a 12 MP photo can take minutes, most of all in `avif` and `suite`. `--ndjson` prints one event per line as files finish.
 
+Don't run `wio ui`: it serves a comparison UI to a person's browser and runs until stopped. Suggest it when someone wants to compare outputs by eye.
+
 ## Reading the result
 
 With `--json`, stdout holds exactly one `RunResult` (its JSON Schema ships as `web-image-optimiser/schema/run-result.schema.json`). Everything else goes to stderr.

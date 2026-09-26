@@ -17,7 +17,9 @@ import {
   compareResultSchema,
   runResultSchema,
 } from "../../src/schema/contract.js";
+import { filesResponseSchema } from "../../src/server/api.js";
 import { fixturePath } from "../fixtureManifest.js";
+import { findSessionFolder } from "../server/uiSession.js";
 
 const BIN = new URL("../../dist/bin/index.js", import.meta.url);
 const SKILL = new URL("../../SKILL.md", import.meta.url);
@@ -28,12 +30,13 @@ let folder = "";
  * Runs the built CLI in the test folder.
  *
  * @param args - The arguments.
- * @param onStdout - Receives the child and each chunk of stdout as it arrives.
+ * @param onStdout - Called as each chunk of stdout arrives, with the child and everything
+ * printed so far.
  * @returns The exit code, the signal that ended it, and everything it printed.
  */
 async function wio(
   args: string[],
-  onStdout?: (child: ReturnType<typeof spawn>) => void
+  onStdout?: (child: ReturnType<typeof spawn>, printed: string) => void
 ) {
   return new Promise<{
     exitCode: number | null;
@@ -48,7 +51,7 @@ async function wio(
 
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
       stdout += chunk;
-      onStdout?.(child);
+      onStdout?.(child, stdout);
     });
     child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
       stderr += chunk;
@@ -244,6 +247,51 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
       expect(exitCode).toBe(130);
       expect(stderr).toContain("wio: stopping");
       expect(files.filter((file) => file.endsWith(".tmp"))).toEqual([]);
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "serves the UI until Ctrl+C, then removes its temp folder",
+    async () => {
+      await copyFixtures("images", [["logo-alpha.png", "logo.png"]]);
+
+      let probe: Promise<{ folder: string; files: unknown }> | undefined;
+      const { exitCode, stdout } = await wio(
+        ["ui", "images", "--no-open"],
+        (child, printed) => {
+          if (!printed.endsWith("\n")) {
+            return; // the address may arrive in pieces
+          }
+          probe ??= (async () => {
+            try {
+              const url = printed.trim();
+              const exchange = await fetch(url, { redirect: "manual" });
+              const cookie = exchange.headers.get("set-cookie")?.split(";")[0];
+              const api = (pathname: string, init: RequestInit = {}) =>
+                fetch(new URL(pathname, url), {
+                  ...init,
+                  headers: { cookie: cookie ?? "" },
+                });
+              const files = filesResponseSchema.parse(
+                await (await api("/api/files")).json()
+              );
+
+              return { folder: await findSessionFolder(api), files };
+            } finally {
+              child.kill("SIGINT"); // even when the probe fails, so the test doesn't hang
+            }
+          })();
+        }
+      );
+      const probed = await probe;
+
+      expect(exitCode).toBe(130);
+      expect(stdout).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?token=/);
+      expect(probed?.files).toMatchObject({
+        files: [{ ref: "root/logo.png" }],
+      });
+      expect(probed?.folder).toMatch(/\.wio-ui-\w+$/);
+      expect(existsSync(probed?.folder ?? "")).toBe(false);
     }
   );
 });

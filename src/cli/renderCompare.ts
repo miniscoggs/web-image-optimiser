@@ -1,16 +1,6 @@
 import type { CompareResult } from "../compare/index.js";
-import type { MetricsVerdict } from "../metrics/index.js";
-import { formatBytes, formatPercent, paint, verdictStyle } from "./format.js";
-
-// the ssimulacra 2 readme's description of each band
-const VERDICT_MEANINGS = {
-  "visually-lossless": "not noticeable even in a flicker test at 1:1",
-  excellent: "not noticeable in an in-place comparison",
-  "very-high": "not noticeable side by side at 1:1",
-  high: "barely noticeable side by side",
-  noticeable: "slightly annoying artifacts",
-  obvious: "obvious artifacts",
-} as const satisfies Record<MetricsVerdict, string>;
+import { VERDICT_MEANINGS, formatBytes, formatPercent } from "./format.js";
+import { paint, verdictStyle } from "./paint.js";
 
 /**
  * Renders a successful comparison for people: the score and what it means, the sizes, the

@@ -12,6 +12,8 @@ import runCompare from "./runCompare.js";
 import type { CompareFlags } from "./runCompare.js";
 import runOptimise from "./runOptimise.js";
 import type { OptimiseFlags } from "./runOptimise.js";
+import runUi from "./runUi.js";
+import type { UiFlags } from "./runUi.js";
 import type { CliIo } from "./types.js";
 
 const EXIT_USAGE = 2;
@@ -31,6 +33,7 @@ Examples:
                                             AVIF, WebP and a fallback, with <picture> markup
   wio photos --dry-run --json               what would be written, as JSON
   wio compare photo.png photo.webp --diff diff.png
+  wio ui photos                             compare the outputs in the browser
 
 Exit codes:
   0    no file failed (skipped and kept-original files are not failures)
@@ -42,6 +45,18 @@ More: ${DOCS_URL}`;
 
 const COMPARE_HELP = `
 Exit codes: 0 when compared, 1 when the comparison failed, 2 for a usage error.`;
+
+const UI_HELP = `
+The UI lists the folder's images, including those in subfolders, takes uploads, and runs them
+with a --to and --target of your choice into a temp folder, then shows each output beside the
+original, zoomed together, in a wipe or with a diff overlay. A lossy output's quality slider
+re-encodes it live. Nothing in the folder changes until an output's Write saves it beside its
+original, which, like the command line, replaces a file only when asked. It copies the wio
+command that writes the whole run. It listens on 127.0.0.1 only, and the address it prints
+holds a session token that every request needs. It runs until Ctrl+C.
+
+Exit codes: 1 when the server can't start, 2 for a usage error, and 130 once stopped by Ctrl+C
+(143 for SIGTERM).`;
 
 /**
  * Parses `--target`: a preset name, or a score from 0 to 100.
@@ -73,6 +88,19 @@ function parseTarget(value: string): PipelineTargetPreset | number {
 function parseConcurrency(value: string) {
   if (!/^\d+$/.test(value) || Number(value) < 1) {
     throw new InvalidArgumentError("Expected a whole number of at least 1.");
+  }
+  return Number(value);
+}
+
+/**
+ * Parses `--port`: a whole number up to 65535, where 0 picks a free port.
+ *
+ * @param value - The flag's value.
+ * @throws InvalidArgumentError otherwise.
+ */
+function parsePort(value: string) {
+  if (!/^\d+$/.test(value) || Number(value) > 65_535) {
+    throw new InvalidArgumentError("Expected a port from 0 to 65535.");
   }
   return Number(value);
 }
@@ -143,7 +171,7 @@ function defineOptimise(
 
 /**
  * Creates the `wio` program: optimise as the default command (also named `optimise` and
- * `optimize`), and `compare`.
+ * `optimize`), `compare` and `ui`.
  *
  * @param io - Where to write.
  * @param finish - Receives the exit code.
@@ -191,6 +219,24 @@ function createProgram(io: CliIo, finish: (exitCode: number) => void) {
     .action(
       async (original: string, candidate: string, flags: CompareFlags) => {
         finish(await runCompare(original, candidate, flags, io));
+      }
+    );
+  program
+    .command("ui")
+    .description(
+      "compare a folder's images and their outputs in the browser, on this machine only"
+    )
+    .argument("[folder]", "the folder to serve (default: the current folder)")
+    .option(
+      "--port <n>",
+      "the port to listen on (default: a free one)",
+      parsePort
+    )
+    .option("--no-open", "print the address without opening the browser")
+    .addHelpText("after", UI_HELP)
+    .action(
+      async (folder: string | undefined, flags: UiFlags, self: Command) => {
+        finish(await runUi(folder, flags, io, self));
       }
     );
   return program;

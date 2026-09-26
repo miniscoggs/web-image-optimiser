@@ -1,9 +1,9 @@
 name: CI
 
-# Every run lints, builds and runs the fast tests on every leg. The golden tests, which encode and
-# score every fixture in every mode, run on Ubuntu when a pull request changes engine files, and on
-# every OS for a release pull request (one that changes the version) or a manual run. "CI passed"
-# is the one check to require.
+# Every run lints, builds and runs the fast tests on every leg, and the browser test on one. The
+# golden tests, which encode and score every fixture in every mode, run on Ubuntu when a pull
+# request changes engine files, and on every OS for a release pull request (one that changes the
+# version) or a manual run. "CI passed" is the one check to require.
 
 on:
   pull_request:
@@ -60,6 +60,8 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run test:fast
+      - if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: npm run test:browser # one leg is enough, in the google chrome the runner has
 
   release-version:
     name: release version

@@ -2,12 +2,13 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { convertPathToPattern, glob, isDynamicPattern } from "tinyglobby";
 import {
-  EXTENSIONS,
   IGNORES_CASE,
+  IMAGE_PATTERN,
   comparablePath,
   formatOfExtension,
   outputPath,
   primaryFormats,
+  relativeInside,
 } from "../pipeline/destination.js";
 import type { PipelineBatchInput, PipelineMode } from "../pipeline/index.js";
 
@@ -34,11 +35,6 @@ type FoundInput = {
   scanned: boolean;
 };
 
-const IMAGE_PATTERN = `*.{${Object.values(EXTENSIONS)
-  .flat()
-  .map((extension) => extension.slice(1))
-  .join(",")}}`;
-
 /**
  * Returns the output folder for an input found in a subfolder: the same subfolder of the output
  * folder, if there is one.
@@ -48,23 +44,6 @@ const IMAGE_PATTERN = `*.{${Object.values(EXTENSIONS)
  */
 function mirror(outDir: string | undefined, subfolder: string) {
   return outDir === undefined ? undefined : path.join(outDir, subfolder);
-}
-
-/**
- * Returns the path of a folder inside another, relative to it, or `undefined` when it isn't
- * inside.
- *
- * @param parent - The outer folder.
- * @param child - The folder that may be inside it.
- */
-function relativeInside(parent: string, child: string) {
-  const relative = path.relative(comparablePath(parent), comparablePath(child));
-  const outside =
-    relative === "" ||
-    path.isAbsolute(relative) ||
-    relative.split(path.sep)[0] === "..";
-
-  return outside ? undefined : relative;
 }
 
 /**
@@ -81,7 +60,7 @@ async function scanFolder(
   const outDirInside =
     options.outDir === undefined
       ? undefined
-      : relativeInside(folder, options.outDir);
+      : relativeInside(comparablePath(folder), comparablePath(options.outDir));
   const matches = await glob(pattern, {
     cwd: folder,
     caseSensitiveMatch: false,

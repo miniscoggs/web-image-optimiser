@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { eventSchema, runResultSchema } from "../src/schema/contract.js";
+import { diffResponseSchema, encodeResponseSchema } from "../src/server/api.js";
 import { fixturePath } from "./fixtureManifest.js";
 
 type Library = typeof import("../src/index.js");
@@ -114,6 +115,86 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
         inputs.map((input) => path.basename(input))
       );
     } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("serves the UI's re-encodes and diff maps from its pixel worker", async () => {
+    const library = await importLibrary();
+    const { folder } = await copyToTemp(["gradient-16bit.png"]);
+    const server = await library.startUiServer({ root: folder });
+
+    try {
+      const exchange = await fetch(server.url, { redirect: "manual" });
+      const cookie = exchange.headers.get("set-cookie")?.split(";")[0] ?? "";
+      const post = (pathname: string, body: unknown) =>
+        fetch(new URL(pathname, server.url), {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      const encoded = encodeResponseSchema.parse(
+        await (
+          await post("/api/encode", {
+            file: "root/gradient-16bit.png",
+            format: "avif",
+            quality: 80, // a gradient bands badly below this
+          })
+        ).json()
+      );
+      const diff = await post("/api/diff", {
+        original: "root/gradient-16bit.png",
+        candidate: encoded.ref,
+      });
+
+      expect(encoded.score).toBeGreaterThan(50);
+      expect(diffResponseSchema.parse(await diff.json()).ref).toMatch(
+        /^session\/diffs\//
+      );
+    } finally {
+      await server.close();
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("serves the built UI, whose scripts are all files the page policy allows", async () => {
+    const library = await importLibrary();
+    const { folder } = await copyToTemp([]);
+    const server = await library.startUiServer({ root: folder });
+
+    try {
+      const exchange = await fetch(server.url, { redirect: "manual" });
+      const cookie = exchange.headers.get("set-cookie")?.split(";")[0] ?? "";
+      const get = (pathname: string) =>
+        fetch(new URL(pathname, server.url), { headers: { cookie } });
+      const page = await get("/");
+      const html = await page.text();
+      const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)];
+
+      expect(page.status).toBe(200);
+      expect(page.headers.get("content-type")).toMatch(/^text\/html/);
+      expect(page.headers.get("content-security-policy")).toMatch(
+        /default-src 'self'/
+      );
+      expect(html.match(/<script\b[^>]*>/g)).toEqual([
+        expect.stringMatching(/ src="\/assets\/[\w-]+\.js"/),
+      ]);
+      expect(assets.map((match) => path.extname(match[1] ?? ""))).toEqual([
+        ".js",
+        ".css",
+      ]);
+      const bodies = await Promise.all(
+        assets.map(async ([, asset]) => {
+          const response = await get(asset ?? "");
+
+          expect(response.status).toBe(200);
+          return response.text();
+        })
+      );
+
+      expect(bodies.join("\n")).not.toMatch(/ZodError|preset-default|libvips/); // strings zod, svgo and sharp each hold, so none of them is bundled
+    } finally {
+      await server.close();
       await rm(folder, { recursive: true, force: true });
     }
   });

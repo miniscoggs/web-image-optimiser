@@ -1,5 +1,5 @@
-import { paint } from "./format.js";
-import type { TextStyle } from "./format.js";
+import { paint } from "./paint.js";
+import type { TextStyle } from "./paint.js";
 
 /**
  * A table column: its heading, and whether its values line up on the right, like numbers.

@@ -14,6 +14,11 @@ const EXTENSIONS = {
   webp: [".webp"],
 } as const satisfies Record<InspectFormat, readonly [string, ...string[]]>;
 
+const IMAGE_PATTERN = `*.{${Object.values(EXTENSIONS)
+  .flat()
+  .map((extension) => extension.slice(1))
+  .join(",")}}`; // a glob matching every image extension, to use with caseSensitiveMatch off
+
 const IGNORES_CASE =
   process.platform === "win32" || process.platform === "darwin"; // their file systems usually do
 
@@ -81,6 +86,24 @@ function comparablePath(filePath: string) {
   const resolved = path.resolve(filePath).normalize("NFC");
 
   return IGNORES_CASE ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Returns the path of a file or folder inside a folder, relative to it, or `undefined` when it
+ * isn't inside, or is the folder itself. Paths are compared as given, so pass them through
+ * {@link comparablePath} to ignore case where the file system does.
+ *
+ * @param parent - The folder.
+ * @param child - The path that may be inside it.
+ */
+function relativeInside(parent: string, child: string) {
+  const relative = path.relative(parent, child);
+  const outside =
+    relative === "" ||
+    path.isAbsolute(relative) ||
+    relative.split(path.sep)[0] === "..";
+
+  return outside ? undefined : relative;
 }
 
 /**
@@ -199,11 +222,13 @@ async function planWrites<Output extends { path: string; bytes?: Buffer }>(
 export {
   EXTENSIONS,
   IGNORES_CASE,
+  IMAGE_PATTERN,
   comparablePath,
   formatOfExtension,
   outputClaims,
   outputPath,
   planWrites,
   primaryFormats,
+  relativeInside,
 };
 export type { BlockedOutput, InputFile };

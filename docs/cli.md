@@ -1,6 +1,6 @@
 # Command line
 
-The package installs one command under two names, `wio` and `web-image-optimiser`. It has two commands: optimise, the default, and `compare`. It never prompts, so scripts and agents can drive it. [json-contract.md](./json-contract.md) describes its JSON output, and [modes.md](./modes.md) how it chooses what to write.
+The package installs one command under two names, `wio` and `web-image-optimiser`. It has three commands: optimise, the default, `compare`, and `ui`, which serves a comparison UI to the browser. It never prompts, so scripts and agents can drive it. [json-contract.md](./json-contract.md) describes its JSON output, and [modes.md](./modes.md) how it chooses what to write.
 
 ## Optimising
 
@@ -32,6 +32,8 @@ wio [optimise] <inputs...> [options]
 - **Glob patterns** give the images they match, again by extension. Quote them so the shell passes them on (`"src/**/*.png"`); the Windows shells never expand them anyway, and `\` works as a separator there. They match case-insensitively on Windows and macOS, like their file systems. A path that exists is always taken as it is, even with glob characters in its name, such as `photo (1).png`. A pattern that matches no image is passed on as a path and fails with `E_READ`, as it would in a shell.
 
 Each file is listed once, even when several inputs name it, and files run in order of path.
+
+A first input named like a command, `optimise`, `optimize`, `compare` or `ui`, is taken as that command, so a folder with one of those names needs `./` in front, as in `wio ./ui`, or the command name first, as in `wio optimise ui`.
 
 A folder or glob leaves out two kinds of file, so running the same command twice works:
 
@@ -100,19 +102,59 @@ Diff   diff.png
 
 Both images must be PNG, JPEG, WebP or AVIF, and the same size once EXIF orientation is applied. `--diff` writes a PNG heat map of where they differ: red to yellow over a dimmed grey copy of the original. It never replaces either image (`E_OUTPUT_IS_INPUT`), and replaces another existing file only with `--overwrite`; otherwise the score is still printed, with `W_OUTPUT_EXISTS`. `--json` prints one `CompareResult`. A failure, such as `E_DIMENSIONS_MISMATCH`, goes to stderr, or into the result's `error` with `--json`.
 
+## Comparing in the browser
+
+```
+wio ui [folder] [--port <n>] [--no-open]
+```
+
+Serves a folder, the current one by default, to the comparison UI, and opens it in the browser. The server lists the folder's images, including those in subfolders but not in hidden folders or `node_modules`, and accepts uploaded images too. A run writes into a temp folder of the server's own, so nothing in the folder changes until you press an output's **Write**. `wio ui` prints the address on stdout and runs until Ctrl+C.
+
+In the page:
+
+- **Images** lists the folder's images, every one picked at first. Drop images on the list, or choose them, to upload more. Refresh picks up files added to the folder since.
+- **Output** and **Quality target** are `--to` and `--target`, with the same defaults.
+- **Run** optimises the picked images, showing each file's progress and then its outputs, as the command line's table does. An image whose outputs would land on another's, or on another picked image, fails with `E_OUTPUT_CONFLICT` as it would on the command line, such as `photo.jpg` beside `photo.png` in `webp` mode, or `photo.png` beside a `photo.webp` written earlier. Stop ends the run once each file in progress finishes its current step, and a new run stops the one in progress and starts once it has.
+- **Compare**, beside a finished file with outputs, opens it in the viewer: the original beside each output, which is WebP, AVIF and the fallback after a `suite` run, or the one output otherwise. Each pane shows the output's format, how it was made, its size, saving, score and verdict.
+  - **Fit**, **100%**, **200%** and **400%** set the zoom, and the scroll wheel zooms around the pointer. 100% draws one image pixel per screen pixel, whatever the display's scaling, and above 100% pixels are drawn as squares rather than smoothed. Drag an image, or use the arrow keys, to pan. Every pane follows, so they always show the same part of the image.
+  - **Diff** lays the diff map that `wio compare --diff` draws over an output, with a slider for its opacity. SVG has no diff map.
+  - **Wipe**, or a click on an output, shows it over the original, which is on the left of a divider to drag or move with the arrow keys. Escape goes back to the grid, then closes the viewer.
+  - The **quality slider** on a WebP, AVIF or JPEG output re-encodes the original at the quality chosen, over the range the optimiser searches, and scores it. The pane then shows that image, its size, saving, score and verdict, and its diff map when Diff is on. Each quality is encoded once per session, so going back to one is quick, but a new one takes about a second per megapixel to score, several for AVIF. **Reset** goes back to the run's output.
+  - **Write** saves the image a pane shows beside its original, named as `wio` names it, or an uploaded image's in the folder served. It follows the command line's rules: it refuses an image larger than the original, and when the name is the original's or another existing file's it asks first, with **Replace original** as `--in-place` and **Replace it** as `--overwrite`. Once the original has been replaced, the viewer's comparison is out of date, so its sliders and Write buttons go until the file is run again.
+- **Copy CLI command** copies the `wio` command that writes the same outputs, to run in the folder served, quoted for a POSIX shell, or for PowerShell when the folder is on Windows. It names an uploaded image by its file name alone.
+- **Export report** saves the run's `RunResult` as `wio-report.json`, with the UI's file references, such as `root/photo.jpg`, in place of paths.
+- **Copy markup**, after a `suite` run, copies what `--markup` would print for the command above: `<picture>` elements whose URLs are relative to the folder served.
+
+The page follows the system's light or dark theme.
+
+| Flag | Meaning |
+| --- | --- |
+| `--port <n>` | Listen on this port. Defaults to a free one |
+| `--no-open` | Print the address without opening the browser |
+
+The server is only for the person at the machine:
+
+- It listens on 127.0.0.1, so other machines can't reach it.
+- The address holds a random session token. Opening it swaps the token for a cookie, which every other request needs, so other users on the machine can't use the server. `wio ui` opens the browser through a page in the temp folder that only you can read, which forwards to the address, so the token isn't on the browser's command line, where other users can see it. If your default app for `.html` files isn't a browser, open the printed address yourself.
+- Browsers send that cookie to every port of 127.0.0.1, so the server also refuses any request that says it comes from another page, such as one served by another local server, and sends no CORS headers.
+- It reads only images, in the folder and its temp folder, and refuses a path that leads outside them, through `..` or a link. It writes into the folder only when you press Write.
+- Uploads, runs and re-encodes stay in the temp folder until the server stops, which removes it. A server that is killed rather than stopped leaves it in the system's temp folder, named `.wio-ui-` and six random characters.
+
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
 | 0 | No file failed. Skipped and kept-original files are not failures, and an unreached target is only a warning |
-| 1 | At least one file failed, or the comparison failed |
-| 2 | Usage error: an unknown command or flag, a bad value, `--json` with `--ndjson`, `--markup` without `--to suite`, or no images (`E_NO_INPUTS`). Nothing is printed on stdout |
-| 130 | Stopped by Ctrl+C |
+| 1 | At least one file failed, the comparison failed, or the UI server couldn't start, such as on a port in use |
+| 2 | Usage error: an unknown command or flag, a bad value, `--json` with `--ndjson`, `--markup` without `--to suite`, no images (`E_NO_INPUTS`), or a `wio ui` folder that isn't one. Nothing is printed on stdout |
+| 130 | Stopped by Ctrl+C, which is how `wio ui` ends |
 | 143 | Stopped by SIGTERM |
 
 ## Stopping
 
 Ctrl+C or SIGTERM stops the run once each file in progress finishes its current step, an encode or a score. That can take up to half a minute on a very large image. The files in progress leave no temp files, files already done keep their outputs, and no `RunResult` or `run-done` event is printed. A second Ctrl+C quits at once. Outputs are only on disk as temp files while they're being written, so quitting at once leaves one behind only when it lands during a write. The temp files are named `.<output name>.wio-<8 hex digits>.tmp`, in the output's folder.
+
+Ctrl+C stops `wio ui` the same way: a run in progress stops, then the server closes and removes its temp folder.
 
 ## Examples
 
@@ -124,4 +166,5 @@ wio hero.jpg --to suite --out-dir web --markup
 wio photos --target excellent --to avif --out-dir web
 wio photos --dry-run --json > plan.json      # what would be written, as JSON
 wio compare photo.png photo.webp --diff diff.png
+wio ui photos                                # compare the outputs in the browser
 ```

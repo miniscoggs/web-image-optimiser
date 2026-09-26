@@ -1,9 +1,16 @@
-import { copyFile, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../../src/cli/index.js";
 import type { CliIo } from "../../src/cli/index.js";
 import {
@@ -344,5 +351,125 @@ describe("wio compare", () => {
 
     expect(exitCode).toBe(2);
     expect(stderr).toContain("must end in .png");
+  });
+});
+
+describe("wio ui", () => {
+  const started: { stop: () => void; running: Promise<number> }[] = [];
+
+  afterEach(async () => {
+    for (const ui of started.splice(0)) {
+      ui.stop(); // even when a test failed before stopping it
+      await ui.running.catch(() => undefined);
+    }
+  });
+
+  /**
+   * Starts `wio ui` in-process, and resolves once it has printed its address.
+   *
+   * @param argv - The arguments after `ui`.
+   */
+  async function startUi(argv: string[]) {
+    const controller = new AbortController();
+    const opened: string[] = [];
+    let stdout = "";
+    let stderr = "";
+    const running = runCli(["ui", ...argv], {
+      stdout: { write: (text: string) => (stdout += text) },
+      stderr: { write: (text: string) => (stderr += text) },
+      color: false,
+      progress: false,
+      signal: controller.signal,
+      openUrl: (url) => opened.push(url),
+    });
+
+    running.catch(() => undefined); // awaited by each test
+    started.push({ stop: () => controller.abort(), running });
+    await vi.waitFor(() => {
+      expect(stdout).toMatch(/\n$/);
+    });
+    return {
+      url: stdout.trim(),
+      opened,
+      stderr,
+      running,
+      stop: () => controller.abort(),
+    };
+  }
+
+  it("prints the address, opens it, and serves until stopped", async () => {
+    await copyFixtures(["icon-6x6.png"]);
+
+    const ui = await startUi([folder]);
+    const exchange = await fetch(ui.url, { redirect: "manual" });
+    const [opened] = ui.opened;
+
+    expect(ui.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?token=[\w-]+$/);
+    expect(ui.opened).toHaveLength(1);
+    expect(opened).toMatch(/^file:\/\/.*\/open\.html$/); // not the address, whose token a command line would show
+    expect(await readFile(new URL(opened ?? ""), "utf8")).toContain(ui.url);
+    expect(ui.stderr).toContain(`serving ${folder}`);
+    expect(exchange.status).toBe(200);
+    ui.stop();
+    await expect(ui.running).rejects.toMatchObject({ name: "AbortError" });
+    await expect(fetch(ui.url)).rejects.toThrow();
+  });
+
+  it("stops at once, opening nothing, after a Ctrl+C that came while the server started", async () => {
+    const controller = new AbortController();
+    const opened: string[] = [];
+    let stdout = "";
+
+    controller.abort();
+    await expect(
+      runCli(["ui", folder], {
+        stdout: { write: (text: string) => (stdout += text) },
+        stderr: { write: () => true },
+        color: false,
+        progress: false,
+        signal: controller.signal,
+        openUrl: (url) => opened.push(url),
+      })
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(opened).toEqual([]);
+    await expect(fetch(stdout.trim())).rejects.toThrow(); // closed
+  });
+
+  it("doesn't open the browser with --no-open", async () => {
+    const ui = await startUi([folder, "--no-open"]);
+
+    expect(ui.opened).toEqual([]);
+    ui.stop();
+    await expect(ui.running).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("exits 1 when the port is in use", async () => {
+    const ui = await startUi([folder, "--no-open"]);
+    const port = new URL(ui.url).port;
+    const { exitCode, stdout, stderr } = await run([
+      "ui",
+      folder,
+      "--port",
+      port,
+    ]);
+
+    ui.stop();
+    await expect(ui.running).rejects.toMatchObject({ name: "AbortError" });
+    expect(exitCode).toBe(1);
+    expect(stdout).toBe("");
+    expect(stderr).toMatch(/^wio: the UI server could not start: .*EADDRINUSE/);
+  });
+
+  it.each([
+    ["a folder that doesn't exist", ["missing"]],
+    ["a file", [fixturePath("icon-6x6.png")]],
+    ["a port that isn't a number", ["--port", "any"]],
+    ["a port over 65535", ["--port", "65536"]],
+  ])("exits 2 for %s, printing nothing on stdout", async (_name, argv) => {
+    const { exitCode, stdout, stderr } = await run(["ui", ...argv]);
+
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe("");
+    expect(stderr).toMatch(/^error: /);
   });
 });

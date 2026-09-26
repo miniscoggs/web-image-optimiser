@@ -1,17 +1,9 @@
 import path from "node:path";
-import type { InspectFormat } from "../inspect/index.js";
+import MIME_TYPES from "../inspect/mimeTypes.js";
 import type { PipelineFileResult } from "../pipeline/index.js";
 import type { MarkupOptions } from "./types.js";
 
 const ALT_PLACEHOLDER = "TODO: describe image"; // only a person knows what the image is for
-
-const MIME_TYPES = {
-  avif: "image/avif",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  svg: "image/svg+xml",
-  webp: "image/webp",
-} as const satisfies Record<InspectFormat, string>;
 
 /**
  * Turns a file path into a relative URL: `/` separators, each part percent-encoded.

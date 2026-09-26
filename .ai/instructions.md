@@ -16,11 +16,14 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 
 | Command                      | Purpose                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm` and `SKILL.md` into `dist/`, and write the JSON Schema files into `dist/schema` |
+| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm` and `SKILL.md` into `dist/`, write the JSON Schema files into `dist/schema`, and build the UI in `ui/` into `dist/ui` with Vite |
+| `npm run dev:ui`             | Serve the UI with hot reload on `http://127.0.0.1:5173`, passing API requests to a `node dist/bin/index.js ui <folder> --port 5174` started first |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
-| `npm test`                   | Every test, then a type-check of `src/` and `tests/`. The golden tests make it take a few minutes         |
-| `npm run test:fast`          | Every test except the golden tests (about 20 s), then the type-check. Use it while iterating              |
+| `npm test`                   | Every test, then `npm run typecheck`. The golden tests make it take a few minutes                          |
+| `npm run test:fast`          | Every test except the golden and browser tests (about 20 s), then the type-check. Use it while iterating  |
+| `npm run test:browser`       | Only the Playwright flow in `tests/browser/`, which drives the built UI in Google Chrome. Run `npm run build` first |
+| `npm run typecheck`          | Type-check `src/` and `tests/`, then the UI in `ui/` with `tests/ui/`, which has its own browser `tsconfig` |
 | `npm run test:golden`        | Only the golden tests in `tests/golden/`                                                                 |
 | `npm run build:wasm`         | Rebuild `wasm/pkg` in the pinned Docker image (needs a running Docker daemon, no local Rust). Run it after any change under `wasm/`, and commit the result |
 | `node wasm/bench.mjs`        | Time one score at 1 MP and 12 MP. Re-run it after changing the WASM build, and update the numbers in `design-patterns.md` |

@@ -43,6 +43,8 @@ export type {
   PipelineWarning,
 } from "./pipeline/index.js";
 export { OptimiserError } from "./schema/index.js";
+export { startUiServer } from "./server/index.js";
+export type { UiServer, UiServerOptions } from "./server/index.js";
 export type {
   OptimiserErrorCode,
   OptimiserWarningCode,

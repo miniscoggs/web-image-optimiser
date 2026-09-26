@@ -1,9 +1,15 @@
 import type {
   PipelineFileResult,
-  PipelineOutput,
   PipelineRunResult,
 } from "../pipeline/index.js";
-import { formatBytes, formatPercent, paint, verdictStyle } from "./format.js";
+import {
+  STATUS_LABELS,
+  formatBytes,
+  formatPercent,
+  formatQuality,
+  formatTotals,
+} from "./format.js";
+import { paint, verdictStyle } from "./paint.js";
 import renderTable from "./renderTable.js";
 import type { TableCell, TableColumn } from "./renderTable.js";
 
@@ -18,27 +24,6 @@ const COLUMNS: TableColumn[] = [
   { title: "Verdict" },
   { title: "Notes" },
 ];
-
-const STATUS_LABELS = {
-  optimised: "optimised",
-  "kept-original": "kept original",
-  skipped: "skipped",
-  failed: "failed",
-} as const satisfies Record<PipelineFileResult["status"], string>;
-
-/**
- * Describes how an output was made: its quality for a lossy encode, otherwise its method.
- *
- * @param output - The output.
- */
-function qualityOf(output: PipelineOutput) {
-  if (output.quality === undefined) {
-    return output.method;
-  }
-  return output.method === "lossy"
-    ? `q${output.quality}`
-    : `${output.method} ${output.quality}`;
-}
 
 /**
  * Returns a file's error and warning codes, red when it failed and yellow otherwise.
@@ -83,7 +68,7 @@ function rowsOf(file: PipelineFileResult): TableCell[][] {
     index === 0 ? file.input : "",
     output.role,
     output.format,
-    qualityOf(output),
+    formatQuality(output),
     `${before} -> ${formatBytes(output.bytes)}`,
     formatPercent(output.saving),
     output.score.toFixed(1),
@@ -98,24 +83,9 @@ function rowsOf(file: PipelineFileResult): TableCell[][] {
  * @param result - The run's result.
  */
 function summaryOf(result: PipelineRunResult) {
-  const { totals } = result;
-  const counts = [
-    [totals.optimised, "optimised"],
-    [totals.keptOriginal, "kept original"],
-    [totals.skipped, "skipped"],
-    [totals.failed, "failed"],
-  ] as const;
-  const parts = counts
-    .filter(([count]) => count > 0)
-    .map(([count, label]) => `${count} ${label}`);
-  const files = `${totals.files} ${totals.files === 1 ? "file" : "files"}`;
-  const saved =
-    totals.inputBytes === 0
-      ? ""
-      : ` ${formatBytes(totals.inputBytes)} -> ${formatBytes(totals.outputBytes)}, ${formatPercent(totals.saving)} smaller.`;
   const dryRun = result.options.dryRun ? " Dry run: nothing was written." : "";
 
-  return `${files}: ${parts.join(", ")}.${saved}${dryRun}\n`;
+  return `${formatTotals(result.totals)}${dryRun}\n`;
 }
 
 /**
