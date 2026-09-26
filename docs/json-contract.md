@@ -1,11 +1,12 @@
 # JSON contract
 
-`optimiseBatch` resolves to a `RunResult`, and reports progress as events. The CLI will print the same shapes: one `RunResult` with `--json`, and one event per line with `--ndjson`. Agents and scripts can rely on this contract. It is the zod schemas in `src/schema/contract.ts`, and the build writes it as JSON Schema (draft 2020-12) to:
+`optimiseBatch` resolves to a `RunResult`, and reports progress as events. The CLI prints the same shapes: one `RunResult` with `--json`, and one event per line with `--ndjson`. `compareFiles` resolves to a `CompareResult`, which `wio compare --json` prints. Agents and scripts can rely on this contract. It is the zod schemas in `src/schema/contract.ts`, and the build writes it as JSON Schema (draft 2020-12) to:
 
 - `dist/schema/run-result.schema.json`
 - `dist/schema/event.schema.json`
+- `dist/schema/compare-result.schema.json`
 
-The package exports both as `web-image-optimiser/schema/run-result.schema.json` and `web-image-optimiser/schema/event.schema.json`.
+The package exports each as `web-image-optimiser/schema/<name>.schema.json`, such as `web-image-optimiser/schema/run-result.schema.json`.
 
 ## Versioning
 
@@ -35,9 +36,11 @@ The package exports both as `web-image-optimiser/schema/run-result.schema.json` 
 | `input` | The input path, as given |
 | `status` | `optimised` (at least one output was written, or would be in a dry run), `kept-original` (nothing was smaller and there was no metadata to strip), `skipped` (an output already exists) or `failed` |
 | `bytes` | The input's size, once it has been read |
+| `width`, `height` | The image's displayed size in pixels, after EXIF orientation, once it has been inspected. Every output has the same size |
 | `outputs` | What was written, AVIF first and the fallback last. Empty unless `optimised` |
 | `warnings` | `{ code, message }` for each warning |
 | `error` | `{ code, message }`, only when `failed` |
+| `markup` | Only from the CLI with `--markup`: the HTML that shows the file, a `<picture>` or an `<img>`. See [cli.md](./cli.md#markup) |
 
 Each output has:
 
@@ -70,18 +73,34 @@ Each event has a `type`:
 
 A run emits `run-start` first and `run-done` last, and each file's `file-start` comes before its `file-done`. Files run in parallel, so events for different files interleave; use `index` to match them. An aborted run emits no `run-done`.
 
+## CompareResult
+
+| Field | Meaning |
+| --- | --- |
+| `schemaVersion` | `1` |
+| `tool` | As in `RunResult` |
+| `original`, `candidate` | Each image's `path` as given, and once it has been read, its `format`, `bytes`, `width` and `height` (displayed, after EXIF orientation) |
+| `score` | The candidate's SSIMULACRA 2 score against the original; 100 for identical pixels. Absent when the comparison failed |
+| `verdict` | The score's verdict, as for an output |
+| `saving` | The fraction of the original's size the candidate saves; negative when the candidate is larger |
+| `diff` | Where the diff map was written, when one was asked for and written |
+| `warnings` | `{ code, message }` for each warning: `W_SCORED_DOWNSCALED`, or `W_OUTPUT_EXISTS` when the diff map wasn't written over an existing file |
+| `error` | `{ code, message }`, only when the comparison failed. The message starts with the path of the image it is about, when it is about one |
+
 ## Codes
 
 | Error | Meaning |
 | --- | --- |
 | `E_ANIMATED` | The image is animated |
 | `E_DECODE` | The file looks like a supported format but can't be decoded |
+| `E_DIMENSIONS_MISMATCH` | Comparisons only: the two images aren't the same size |
 | `E_INTERNAL` | An unexpected error, which is a bug. The rest of the run carries on |
 | `E_OUTPUT_CONFLICT` | One of the file's outputs could land on another input, or on an earlier input's outputs, such as `photo.png` and `photo.jpg` both writing `photo.webp` |
 | `E_OUTPUT_IS_INPUT` | An output would replace the input without in-place writes allowed |
 | `E_READ` | The file can't be read |
 | `E_TOO_LARGE_FOR_FORMAT` | The image is too large for a format. Other formats are still tried, so this doesn't fail a file on its own |
-| `E_UNSUPPORTED_FORMAT` | The file isn't a PNG, JPEG, WebP, AVIF or SVG |
+| `E_TOO_SMALL_TO_SCORE` | Comparisons only: the images differ and are under 8x8 pixels, too small to score |
+| `E_UNSUPPORTED_FORMAT` | The file isn't a PNG, JPEG, WebP, AVIF or SVG, or a comparison was given an SVG |
 | `E_WRITE` | An output can't be written |
 
 | Warning | Meaning |
@@ -94,6 +113,8 @@ A run emits `run-start` first and `run-done` last, and each file's `file-start` 
 | `W_SVG_SAME_ONLY` | SVGs are always optimised as SVG |
 | `W_TARGET_NOT_REACHED` | No output in the requested format reached the target, so the highest-scoring one that is smaller was written |
 | `W_TOO_SMALL_TO_SCORE` | The image is under 8x8 pixels, so only lossless outputs were tried |
+
+The CLI also has one usage error code, which it prints on stderr with exit code 2 and no JSON: `E_NO_INPUTS`, when the inputs hold no images. Its other usage errors, such as an unknown flag, have no code.
 
 ## Changes
 

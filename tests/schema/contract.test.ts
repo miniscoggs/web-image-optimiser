@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  compareResultSchema,
   eventSchema,
   fileResultSchema,
   runResultSchema,
@@ -9,7 +10,7 @@ import { ERROR_CODES, WARNING_CODES } from "../../src/schema/index.js";
 
 describe("JSON contract", () => {
   it("generates JSON Schema that accepts fields added later", () => {
-    for (const schema of [runResultSchema, eventSchema]) {
+    for (const schema of [runResultSchema, eventSchema, compareResultSchema]) {
       const text = JSON.stringify(z.toJSONSchema(schema, { io: "input" }));
 
       expect(text).not.toContain('"additionalProperties":false');

@@ -29,7 +29,7 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\" && node scripts/build-schema.mjs",
+    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true }); require('node:fs').copyFileSync('SKILL.md', 'dist/SKILL.md')\" && node scripts/build-schema.mjs",
     "build:wasm": "node wasm/build.mjs",
     "prepack": "npm run build",
     "lint": "eslint . && prettier --check .",
@@ -39,6 +39,7 @@
     "test:golden": "vitest run tests/golden/"
   },
   "dependencies": {
+    "commander": "^15.0.0",
     "sharp": "^0.35.4",
     "svgo": "^4.1.0",
     "tinyglobby": "^0.2.17",

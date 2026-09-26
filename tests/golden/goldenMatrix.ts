@@ -301,6 +301,10 @@ function describeMode(mode: PipelineMode, shard: [number, number] = [1, 1]) {
         return;
       }
 
+      expect(result).toMatchObject({
+        width: fixture.width,
+        height: fixture.height,
+      });
       await expectRules(fixture, mode, result, bytes);
       if (fixture.format === "svg") {
         for (const output of result.outputs) {

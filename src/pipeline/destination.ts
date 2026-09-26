@@ -14,6 +14,9 @@ const EXTENSIONS = {
   webp: [".webp"],
 } as const satisfies Record<InspectFormat, readonly [string, ...string[]]>;
 
+const IGNORES_CASE =
+  process.platform === "win32" || process.platform === "darwin"; // their file systems usually do
+
 /**
  * An input file, read, with its identity on disk.
  */
@@ -54,6 +57,21 @@ function outputPath(
 }
 
 /**
+ * Returns the format a path's extension names, whatever its case, or `undefined` for any other
+ * extension.
+ *
+ * @param filePath - The path.
+ */
+function formatOfExtension(filePath: string) {
+  const extension = path.extname(filePath).toLowerCase();
+  const formats = Object.keys(EXTENSIONS) as InspectFormat[];
+
+  return formats.find((format) =>
+    (EXTENSIONS[format] as readonly string[]).includes(extension)
+  );
+}
+
+/**
  * Returns a path in the form used to compare it: absolute, and lowercased where the file
  * system usually ignores case.
  *
@@ -62,9 +80,24 @@ function outputPath(
 function comparablePath(filePath: string) {
   const resolved = path.resolve(filePath).normalize("NFC");
 
-  return process.platform === "win32" || process.platform === "darwin"
-    ? resolved.toLowerCase()
-    : resolved;
+  return IGNORES_CASE ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Returns the formats whose outputs a mode always aims for, which are checked before any work
+ * is done. The strip fallback and a suite's fallback are only checked once chosen.
+ *
+ * @param format - The input's format.
+ * @param mode - The mode.
+ */
+function primaryFormats(
+  format: InspectFormat,
+  mode: PipelineMode
+): InspectFormat[] {
+  if (format === "svg" || mode === "same") {
+    return [format];
+  }
+  return mode === "suite" ? ["avif", "webp"] : [mode];
 }
 
 /**
@@ -131,12 +164,12 @@ function isInput(outputPath: string, stats: BigIntStats, input: InputFile) {
  *
  * @param outputs - The outputs' paths, with their bytes once known.
  * @param input - The input.
- * @param settings - The run's settings.
+ * @param settings - Whether the input, and other existing files, may be replaced.
  */
 async function planWrites<Output extends { path: string; bytes?: Buffer }>(
   outputs: Output[],
   input: InputFile,
-  settings: PipelineSettings
+  settings: Pick<PipelineSettings, "inPlace" | "overwrite">
 ): Promise<{ blocked: BlockedOutput } | { writes: Output[] }> {
   const writes: Output[] = [];
   let existing: string | undefined;
@@ -163,5 +196,14 @@ async function planWrites<Output extends { path: string; bytes?: Buffer }>(
     : { blocked: { reason: "exists", path: existing } };
 }
 
-export { comparablePath, outputClaims, outputPath, planWrites };
+export {
+  EXTENSIONS,
+  IGNORES_CASE,
+  comparablePath,
+  formatOfExtension,
+  outputClaims,
+  outputPath,
+  planWrites,
+  primaryFormats,
+};
 export type { BlockedOutput, InputFile };

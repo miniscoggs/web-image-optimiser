@@ -2,14 +2,17 @@
 const ERROR_CODES = [
   "E_ANIMATED",
   "E_DECODE",
+  "E_DIMENSIONS_MISMATCH",
   "E_INTERNAL",
   "E_OUTPUT_CONFLICT",
   "E_OUTPUT_IS_INPUT",
   "E_READ",
   "E_TOO_LARGE_FOR_FORMAT",
+  "E_TOO_SMALL_TO_SCORE",
   "E_UNSUPPORTED_FORMAT",
   "E_WRITE",
 ] as const;
+const USAGE_ERROR_CODES = ["E_NO_INPUTS"] as const; // the cli prints these with exit code 2
 const WARNING_CODES = [
   "W_ICC_KEPT",
   "W_NOTICEABLE",
@@ -26,6 +29,8 @@ const WARNING_CODES = [
  *
  * - `E_ANIMATED`: the image is animated (an animated WebP, APNG or AVIF sequence).
  * - `E_DECODE`: the file has a supported format's signature but can't be read.
+ * - `E_DIMENSIONS_MISMATCH`: `compareFiles` only: the two images aren't the same size, so they
+ *   can't be compared.
  * - `E_INTERNAL`: an unexpected error, which is a bug. The message has the details.
  * - `E_OUTPUT_CONFLICT`: in a batch, one of the file's outputs could land on another input,
  *   or on an earlier input's outputs, such as `photo.png` and `photo.jpg` both writing
@@ -34,7 +39,10 @@ const WARNING_CODES = [
  * - `E_READ`: the input file can't be read, for example because it doesn't exist.
  * - `E_TOO_LARGE_FOR_FORMAT`: the image is too large for an output format, such as WebP's
  *   16383-pixel limit or AVIF's 16384. Other formats can still be tried.
- * - `E_UNSUPPORTED_FORMAT`: the file isn't a PNG, JPEG, WebP, AVIF or SVG.
+ * - `E_TOO_SMALL_TO_SCORE`: `compareFiles` only: the images differ but are under 8x8 pixels,
+ *   too small to score.
+ * - `E_UNSUPPORTED_FORMAT`: the file isn't a PNG, JPEG, WebP, AVIF or SVG, or `compareFiles`
+ *   was given an SVG.
  * - `E_WRITE`: an output can't be written, for example because the folder is read-only.
  *
  * @example
@@ -79,5 +87,5 @@ type OptimiserErrorCode = (typeof ERROR_CODES)[number];
  */
 type OptimiserWarningCode = (typeof WARNING_CODES)[number];
 
-export { ERROR_CODES, WARNING_CODES };
+export { ERROR_CODES, USAGE_ERROR_CODES, WARNING_CODES };
 export type { OptimiserErrorCode, OptimiserWarningCode };

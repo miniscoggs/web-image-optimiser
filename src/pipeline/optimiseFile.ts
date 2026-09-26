@@ -1,14 +1,14 @@
-import { readFile, stat } from "node:fs/promises";
 import sharp from "sharp";
 import { inspect } from "../inspect/index.js";
 import type { InspectFormat, InspectResult } from "../inspect/index.js";
 import { verdictFor } from "../metrics/index.js";
 import { OptimiserError } from "../schema/index.js";
 import type { ChosenCandidate } from "./candidate.js";
-import { outputPath, planWrites } from "./destination.js";
+import { outputPath, planWrites, primaryFormats } from "./destination.js";
 import type { BlockedOutput, InputFile } from "./destination.js";
 import failedResult from "./failedResult.js";
 import { createRasterSource } from "./rasterCandidates.js";
+import readInput from "./readInput.js";
 import { resolveSettings } from "./resolveSettings.js";
 import type { PipelineSettings } from "./resolveSettings.js";
 import selectRaster from "./selectRaster.js";
@@ -24,48 +24,6 @@ import writeOutputs from "./writeOutputs.js";
 const NOTICEABLE_BELOW = 80; // under "very-high", the loss may show side by side
 
 /**
- * Reads an input file and its identity on disk.
- *
- * @param filePath - The input path.
- * @throws {@link OptimiserError} `E_READ` when it can't be read.
- */
-async function readInput(filePath: string): Promise<InputFile> {
-  try {
-    const [bytes, stats] = await Promise.all([
-      readFile(filePath),
-      stat(filePath, { bigint: true }),
-    ]);
-
-    return { path: filePath, bytes, stats };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-
-    throw new OptimiserError(
-      "E_READ",
-      `The file could not be read: ${detail}`,
-      { cause: error }
-    );
-  }
-}
-
-/**
- * Returns the formats whose outputs a mode always aims for, which are checked before any work
- * is done. The strip fallback and a suite's fallback are only checked once chosen.
- *
- * @param format - The input's format.
- * @param mode - The mode.
- */
-function primaryFormats(
-  format: InspectFormat,
-  mode: PipelineSettings["to"]
-): InspectFormat[] {
-  if (format === "svg" || mode === "same") {
-    return [format];
-  }
-  return mode === "suite" ? ["avif", "webp"] : [mode];
-}
-
-/**
  * Turns a blocked output into the file's result: a failure when it is the input, or a skip
  * when it already exists.
  *
@@ -75,7 +33,7 @@ function primaryFormats(
  */
 function blockedResult(
   blocked: BlockedOutput,
-  base: Pick<PipelineFileResult, "input" | "bytes">
+  base: Pick<PipelineFileResult, "input" | "bytes" | "width" | "height">
 ): PipelineFileResult {
   if (blocked.reason === "input") {
     throw new OptimiserError(
@@ -181,7 +139,12 @@ async function optimiseInput(
   signal: AbortSignal | undefined
 ): Promise<PipelineFileResult> {
   const info = await inspect(file.bytes);
-  const base = { input: file.path, bytes: file.bytes.length };
+  const base = {
+    input: file.path,
+    bytes: file.bytes.length,
+    width: info.width,
+    height: info.height,
+  };
   const pathFor = (format: InspectFormat) =>
     outputPath(file.path, format, settings.outDir);
   const primaryOutputs = primaryFormats(info.format, settings.to).map(

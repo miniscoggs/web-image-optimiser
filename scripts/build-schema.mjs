@@ -2,12 +2,17 @@
 // src/schema/contract.ts. `npm run build` runs it after compiling; never edit the output by hand.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { z } from "zod";
-import { eventSchema, runResultSchema } from "../dist/schema/contract.js";
+import {
+  compareResultSchema,
+  eventSchema,
+  runResultSchema,
+} from "../dist/schema/contract.js";
 
 const OUTPUT_DIR = new URL("../dist/schema/", import.meta.url);
 const SCHEMAS = {
   "run-result.schema.json": runResultSchema,
   "event.schema.json": eventSchema,
+  "compare-result.schema.json": compareResultSchema,
 };
 
 mkdirSync(OUTPUT_DIR, { recursive: true });

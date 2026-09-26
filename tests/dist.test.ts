@@ -122,6 +122,7 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
     for (const [file, title] of [
       ["run-result.schema.json", "RunResult"],
       ["event.schema.json", "Event"],
+      ["compare-result.schema.json", "CompareResult"],
     ]) {
       const text = await readFile(
         new URL(`../dist/schema/${file}`, import.meta.url),

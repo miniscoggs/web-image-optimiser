@@ -2,26 +2,56 @@
 
 Prepares images for websites. `wio` reads PNG, JPEG, WebP, AVIF and SVG files, always strips metadata, and writes the smallest output that stays above a perceptual quality target (SSIMULACRA 2), with a plain-language verdict when degradation would be noticeable.
 
-> **Status:** in development. The package is not published to npm yet, and the CLI has no commands yet.
+> **Status:** in development. The package is not published to npm yet: to use `wio`, run `npm install`, `npm run build` and `npm link` in a clone.
+
+## Command line
+
+```sh
+wio photos                                        # a WebP beside each image in photos/
+wio photos --recursive --out-dir web              # every subfolder too, mirrored into web/
+wio hero.jpg --to suite --out-dir web --markup    # AVIF, WebP and a fallback, with <picture> markup
+wio photos --dry-run --json                       # what would be written, as JSON
+wio compare photo.png photo.webp --diff diff.png  # the score, verdict and size change
+```
+
+`--to` picks what to write: `webp` (the default), `avif`, `same` (each file's own format) or `suite` (AVIF, WebP and a JPEG or PNG fallback for `<picture>`). `--target` sets the lowest quality allowed, `high` (80) by default. Every output keeps the input's name with its own extension, beside the input or in `--out-dir`, and replaces an input only with `--in-place` and another existing file only with `--overwrite`. `--json` prints one result for scripts and agents, and the exit code is 0 when nothing failed, 1 when a file failed and 2 for a usage error. [docs/cli.md](./docs/cli.md) describes every flag.
+
+## Using with AI agents
+
+Agents drive `wio` through its CLI: `--json` prints exactly one result on stdout, `--ndjson` one event per line, and the CLI never prompts. The package ships an agent guide, `dist/SKILL.md` (the root [SKILL.md](./SKILL.md) in this repo), covering which mode to use, the commands to run, how to read the result, the exit codes and the safety rules. To give an agent the skill, copy it into the project:
+
+- **Claude Code:** `.claude/skills/web-image-optimiser/SKILL.md`
+- **A repo with `.ai/` steering:** `.ai/skills/web-image-optimiser/SKILL.md`, listed in `.ai/skills.md`
+
+For example, from a project that has the package installed:
+
+```sh
+mkdir -p .claude/skills/web-image-optimiser
+cp node_modules/web-image-optimiser/dist/SKILL.md .claude/skills/web-image-optimiser/
+```
+
+The result's JSON Schema ships too, as `web-image-optimiser/schema/run-result.schema.json`. See [docs/json-contract.md](./docs/json-contract.md).
 
 ## Library
 
-The package also exports the functions the CLI is built on. So far, these are the per-file optimiser and the steps it is made of: image inspection, lossless metadata stripping, SVG optimisation and the perceptual metrics.
+The package also exports the functions the CLI is built on: the optimiser, comparisons and markup, and the steps the optimiser is made of, which are image inspection, lossless metadata stripping, SVG optimisation and the perceptual metrics.
 
-| Export                                | Purpose                                                                                                                                                                                                   |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `optimiseFile(path, options?)`        | Optimises one image in `webp`, `avif`, `same` or `suite` mode and writes the smallest outputs that reach the quality target. See [docs/modes.md](./docs/modes.md)                                         |
-| `optimiseBatch(inputs, options?)`     | Optimises many images in parallel on worker threads, with progress events, and resolves to a `RunResult`. See [docs/json-contract.md](./docs/json-contract.md)                                            |
-| `inspect(input)`                      | Reads a file path or bytes and reports the format (from the bytes, not the extension), displayed size, alpha, colour profile and metadata                                                                 |
-| `stripLossless(bytes, info)`          | Removes a JPEG, PNG, WebP or AVIF file's metadata by editing its segments, chunks or boxes, so the pixels are untouched, and lists what it removed                                                        |
-| `optimiseSvg(bytes, options?)`        | Optimises an SVG with SVGO at the lowest float precision that still renders the same at 1x and 2x (score 90+), and reports its gzipped size. `options.signal` aborts it. See [docs/svg.md](./docs/svg.md) |
-| `stripSvg(bytes)`                     | Removes an SVG's comments, `<metadata>` and editor data, which changes nothing that renders                                                                                                               |
-| `decodeForScoring(input, options?)`   | Decodes a file path or encoded bytes into 8-bit sRGB RGBA, with EXIF orientation applied. `options.density` sets the DPI an SVG renders at                                                                |
-| `score(reference, distorted)`         | Resolves to the SSIMULACRA 2 score, 100 for identical pixels. Transparent images are scored on black and on white, and the lower score wins                                                               |
-| `verdictFor(score)`                   | Maps a score to `visually-lossless` (90+), `excellent` (85+), `very-high` (80+), `high` (70+), `noticeable` (50+) or `obvious`                                                                            |
-| `isScorable(image)`                   | Returns whether an image is at least 8x8, the smallest size SSIMULACRA 2 can score                                                                                                                        |
-| `isDownscaledForScoring(image)`       | Returns whether an image is over 26 megapixels, which `score` resizes to 26 MP first, so its score is approximate                                                                                         |
-| `createDiffMap(reference, distorted)` | Returns a PNG heat map of where two images differ                                                                                                                                                         |
+| Export                                        | Purpose                                                                                                                                                                                                   |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `optimiseFile(path, options?)`                | Optimises one image in `webp`, `avif`, `same` or `suite` mode and writes the smallest outputs that reach the quality target. See [docs/modes.md](./docs/modes.md)                                         |
+| `optimiseBatch(inputs, options?)`             | Optimises many images in parallel on worker threads, with progress events, and resolves to a `RunResult`. See [docs/json-contract.md](./docs/json-contract.md)                                            |
+| `compareFiles(original, candidate, options?)` | Scores a candidate image against its original, reports the size saving, and can write a diff map. Resolves to a `CompareResult`                                                                           |
+| `generatePictureMarkup(file, options?)`       | Returns the `<picture>` or `<img>` HTML for a file's result, with `width`, `height` and a placeholder `alt`. See [docs/cli.md](./docs/cli.md#markup)                                                      |
+| `inspect(input)`                              | Reads a file path or bytes and reports the format (from the bytes, not the extension), displayed size, alpha, colour profile and metadata                                                                 |
+| `stripLossless(bytes, info)`                  | Removes a JPEG, PNG, WebP or AVIF file's metadata by editing its segments, chunks or boxes, so the pixels are untouched, and lists what it removed                                                        |
+| `optimiseSvg(bytes, options?)`                | Optimises an SVG with SVGO at the lowest float precision that still renders the same at 1x and 2x (score 90+), and reports its gzipped size. `options.signal` aborts it. See [docs/svg.md](./docs/svg.md) |
+| `stripSvg(bytes)`                             | Removes an SVG's comments, `<metadata>` and editor data, which changes nothing that renders                                                                                                               |
+| `decodeForScoring(input, options?)`           | Decodes a file path or encoded bytes into 8-bit sRGB RGBA, with EXIF orientation applied. `options.density` sets the DPI an SVG renders at                                                                |
+| `score(reference, distorted)`                 | Resolves to the SSIMULACRA 2 score, 100 for identical pixels. Transparent images are scored on black and on white, and the lower score wins                                                               |
+| `verdictFor(score)`                           | Maps a score to `visually-lossless` (90+), `excellent` (85+), `very-high` (80+), `high` (70+), `noticeable` (50+) or `obvious`                                                                            |
+| `isScorable(image)`                           | Returns whether an image is at least 8x8, the smallest size SSIMULACRA 2 can score                                                                                                                        |
+| `isDownscaledForScoring(image)`               | Returns whether an image is over 26 megapixels, which `score` resizes to 26 MP first, so its score is approximate                                                                                         |
+| `createDiffMap(reference, distorted)`         | Returns a PNG heat map of where two images differ                                                                                                                                                         |
 
 ```ts
 import { optimiseFile } from "web-image-optimiser";

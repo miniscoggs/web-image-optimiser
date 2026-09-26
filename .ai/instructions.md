@@ -7,7 +7,7 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 - Check `.ai/skills.md` first and follow a matching project skill over a general approach.
 - Question unusual or counter-intuitive logic before implementing it, and record a deliberate decision with a short comment.
 - If a request conflicts with these docs, say so before proceeding and offer to follow the convention.
-- After a change, review it for simplicity, then update `README.md`, `docs/*.md` and `.ai/` in the same change so no doc describes behaviour the code doesn't have.
+- After a change, review it for simplicity, then update `README.md`, `docs/*.md` and `.ai/` in the same change so no doc describes behaviour the code doesn't have. A change to a CLI flag, code or output also updates the `--help` text in `src/cli/runCli.ts`, `docs/cli.md` and the shipped agent guide, `SKILL.md`.
 - When sharp, SVGO or another dependency falls short, prefer fixing or reporting it upstream. Keep any local workaround small, with a comment linking the upstream issue.
 - Follow only this repo's steering, not that of other projects open alongside it.
 - Add a line under **Unreleased** in `CHANGELOG.md` for every change a user of the package would notice, including every change to `tests/golden/golden.json`. Don't bump the version in an ordinary pull request: a release pull request does that (see the CI section of `design-patterns.md`).
@@ -16,7 +16,7 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 
 | Command                      | Purpose                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm`, and write the JSON Schema files into `dist/schema` |
+| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm` and `SKILL.md` into `dist/`, and write the JSON Schema files into `dist/schema` |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
 | `npm test`                   | Every test, then a type-check of `src/` and `tests/`. The golden tests make it take a few minutes         |

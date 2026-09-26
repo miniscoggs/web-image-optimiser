@@ -86,6 +86,20 @@ const outputSchema = z
   .meta({ id: "Output" });
 
 /**
+ * Why something failed.
+ */
+const errorSchema = z
+  .object({
+    code: z.enum(ERROR_CODES),
+    message: z
+      .string()
+      .describe(
+        "For people; it may change between releases, so branch on code"
+      ),
+  })
+  .meta({ id: "Error" });
+
+/**
  * What happened to one file.
  */
 const fileResultSchema = z
@@ -93,14 +107,27 @@ const fileResultSchema = z
     input: z.string().describe("The input path, as given"),
     status: z.enum(FILE_STATUSES),
     bytes: count.optional().describe("The input's size, once it has been read"),
+    width: count
+      .optional()
+      .describe(
+        "The image's displayed width in pixels, after orientation, once inspected; every output has the same size"
+      ),
+    height: count
+      .optional()
+      .describe("The image's displayed height in pixels, once inspected"),
     outputs: z
       .array(outputSchema)
       .describe("AVIF first and the fallback last; empty unless optimised"),
     warnings: z.array(warningSchema),
-    error: z
-      .object({ code: z.enum(ERROR_CODES), message: z.string() })
+    error: errorSchema
       .optional()
       .describe("Why the file failed, when status is failed"),
+    markup: z
+      .string()
+      .optional()
+      .describe(
+        "Only with the CLI's --markup: HTML that shows the image, a <picture> element or an <img>"
+      ),
   })
   .meta({ id: "FileResult" });
 
@@ -204,10 +231,65 @@ const eventSchema = z
     description: "A progress event from a web-image-optimiser run",
   });
 
+/**
+ * One of the two images a comparison reads, with what is known about it once read.
+ */
+const comparedImageSchema = z
+  .object({
+    path: z.string().describe("The path, as given"),
+    format: z.enum(INSPECT_FORMATS).optional(),
+    bytes: count.optional(),
+    width: count
+      .optional()
+      .describe("The displayed width in pixels, after orientation"),
+    height: count.optional(),
+  })
+  .meta({ id: "ComparedImage" });
+
+/**
+ * The result of comparing two images, which `wio compare --json` prints.
+ */
+const compareResultSchema = z
+  .object({
+    schemaVersion: z.literal(SCHEMA_VERSION),
+    tool: toolSchema,
+    original: comparedImageSchema,
+    candidate: comparedImageSchema,
+    score: z
+      .number()
+      .max(100)
+      .optional()
+      .describe(
+        "SSIMULACRA 2 of the candidate against the original; 100 for identical pixels"
+      ),
+    verdict: z.enum(METRICS_VERDICTS).optional(),
+    saving: z
+      .number()
+      .max(1)
+      .optional()
+      .describe(
+        "The fraction of the original's size the candidate saves; negative when it is larger"
+      ),
+    diff: z
+      .string()
+      .optional()
+      .describe("Where the diff map was written, when one was asked for"),
+    warnings: z.array(warningSchema),
+    error: errorSchema
+      .optional()
+      .describe("Why the comparison failed; score and verdict are then absent"),
+  })
+  .meta({
+    title: "CompareResult",
+    description: "The result of comparing two images with web-image-optimiser",
+  });
+
 export {
   FILE_STATUSES,
   OUTPUT_METHODS,
   OUTPUT_ROLES,
+  compareResultSchema,
+  comparedImageSchema,
   eventSchema,
   fileResultSchema,
   outputSchema,

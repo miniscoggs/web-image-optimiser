@@ -1,4 +1,10 @@
 // library entry; public modules are re-exported from here
+export { compareFiles } from "./compare/index.js";
+export type {
+  CompareImage,
+  CompareOptions,
+  CompareResult,
+} from "./compare/index.js";
 export { inspect } from "./inspect/index.js";
 export type {
   InspectFormat,
@@ -6,6 +12,8 @@ export type {
   InspectResult,
   InspectSvg,
 } from "./inspect/index.js";
+export { generatePictureMarkup } from "./markup/index.js";
+export type { MarkupOptions } from "./markup/index.js";
 export {
   createDiffMap,
   decodeForScoring,

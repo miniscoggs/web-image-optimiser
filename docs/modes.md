@@ -65,7 +65,7 @@ An output goes in `outDir`, or next to its input, named after the input with the
 
 ## Results
 
-`optimiseFile` resolves to a result whose `status` is `optimised`, `kept-original`, `skipped` or `failed`. It rejects only when aborted or given an invalid option. A problem with the file itself is a `failed` result whose `error.code` is one of:
+`optimiseFile` resolves to a result whose `status` is `optimised`, `kept-original`, `skipped` or `failed`, with the input's size and, once inspected, its displayed width and height. It rejects only when aborted or given an invalid option. A problem with the file itself is a `failed` result whose `error.code` is one of:
 
 | Code | Meaning |
 | --- | --- |
