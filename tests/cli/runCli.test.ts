@@ -385,9 +385,12 @@ describe("wio ui", () => {
 
     running.catch(() => undefined); // awaited by each test
     started.push({ stop: () => controller.abort(), running });
-    await vi.waitFor(() => {
-      expect(stdout).toMatch(/\n$/);
-    });
+    await vi.waitFor(
+      () => {
+        expect(stdout).toMatch(/\n$/);
+      },
+      { timeout: 30_000 } // the first start loads the server's modules, over a second on a slow runner
+    );
     return {
       url: stdout.trim(),
       opened,
