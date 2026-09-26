@@ -1,4 +1,4 @@
-import { readFile, readdir, symlink } from "node:fs/promises";
+import { readFile, readdir, realpath, symlink } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -44,7 +44,7 @@ describe("GET /api/files", () => {
 
     expect(response.status).toBe(200);
     expect(body.root.normalize("NFC")).toBe(
-      path.resolve(session.root).normalize("NFC")
+      (await realpath(session.root)).normalize("NFC") // eg /private/var on macOS, or no short names on Windows
     );
     expect(body.files).toEqual([
       { ref: "root/gradient.png", bytes: 363_190 },

@@ -41,7 +41,7 @@ const listedFileSchema = z.object({
  * folders or `node_modules`), then the uploads.
  */
 const filesResponseSchema = z.object({
-  root: z.string().describe("The folder served, as an absolute path"),
+  root: z.string().describe("The folder served, as its real absolute path"),
   files: z.array(listedFileSchema),
 });
 
