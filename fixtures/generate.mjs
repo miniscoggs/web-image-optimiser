@@ -553,6 +553,27 @@ const FIXTURES = [
         .toBuffer(),
   },
   {
+    file: "rotated-xmp.avif",
+    traits: {
+      kind: "scene",
+      format: "avif",
+      width: 320,
+      height: 480,
+      icc: "srgb",
+      metadata: ["exif", "gps", "xmp"],
+    },
+    notes:
+      "Stored 480x320 with the marker top-left; an irot property turns it 90 degrees clockwise. AVIF orientation lives in irot, not EXIF, so sharp reports none. Carries an sRGB rICC colour property before irot in ipco, plus Exif and XMP items.",
+    build: () =>
+      renderScene(480, 320, 5)
+        .withExif(EXIF_WITH_GPS)
+        .withMetadata({ orientation: 6 })
+        .withIccProfile("srgb")
+        .withXmp(XMP_PACKET)
+        .avif({ quality: 60, effort: 4 })
+        .toBuffer(),
+  },
+  {
     file: "editor-metadata.svg",
     origin: HAND_WRITTEN,
     traits: {

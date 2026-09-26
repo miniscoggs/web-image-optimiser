@@ -4,7 +4,7 @@ import { assert, describe, expect, it } from "vitest";
 
 type PackageManifest = {
   bin: Record<string, string>;
-  exports: Record<string, Record<string, string>>;
+  exports: Record<string, string | Record<string, string>>;
   files: string[];
   engines: { node: string };
   devDependencies: Record<string, string>;
@@ -57,9 +57,13 @@ describe("package manifest", () => {
     expect(manifest.bin["wio"]).toBe(manifest.bin["web-image-optimiser"]);
   });
 
-  it("lists types first in every export", () => {
+  it("lists types first in every code export, and exports only JSON otherwise", () => {
     for (const entry of Object.values(manifest.exports)) {
-      expect(Object.keys(entry)[0]).toBe("types");
+      if (typeof entry === "string") {
+        expect(entry).toMatch(/^\.\/dist\/.*\.json$/);
+      } else {
+        expect(Object.keys(entry)[0]).toBe("types");
+      }
     }
   });
 

@@ -18,7 +18,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./schema/*.json": "./dist/schema/*.json"
   },
   "files": [
     "dist"
@@ -28,7 +29,7 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\" && node scripts/build-schema.mjs",
     "build:wasm": "node wasm/build.mjs",
     "prepack": "npm run build",
     "lint": "eslint . && prettier --check .",

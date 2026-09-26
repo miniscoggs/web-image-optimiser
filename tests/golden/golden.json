@@ -1,0 +1,1122 @@
+{
+  "tool": { "version": "0.1.0", "sharp": "0.35.4", "libvips": "8.18.6" },
+  "target": 80,
+  "modes": {
+    "same": {
+      "gradient.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 1299
+          }
+        ]
+      },
+      "gradient-16bit.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 53224
+          }
+        ]
+      },
+      "screenshot.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          { "role": "same", "format": "png", "method": "strip", "bytes": 47735 }
+        ]
+      },
+      "logo-alpha.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          { "role": "same", "format": "png", "method": "strip", "bytes": 4661 }
+        ]
+      },
+      "semi-transparent.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 8712
+          }
+        ]
+      },
+      "icon-6x6.png": {
+        "status": "optimised",
+        "warnings": ["W_TOO_SMALL_TO_SCORE"],
+        "outputs": [
+          { "role": "same", "format": "png", "method": "strip", "bytes": 95 }
+        ]
+      },
+      "text-chunks.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 119267
+          }
+        ]
+      },
+      "orientation-6.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 80,
+            "bytes": 19257
+          }
+        ]
+      },
+      "display-p3.jpg": {
+        "status": "kept-original",
+        "warnings": ["W_ICC_KEPT"],
+        "outputs": []
+      },
+      "lossy.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 79,
+            "bytes": 22038
+          }
+        ]
+      },
+      "lossless.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 2810
+          }
+        ]
+      },
+      "animated.webp": {
+        "status": "failed",
+        "error": "E_ANIMATED",
+        "warnings": [],
+        "outputs": []
+      },
+      "exif.avif": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 55,
+            "bytes": 15324
+          }
+        ]
+      },
+      "rotated-xmp.avif": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 59,
+            "bytes": 15530
+          }
+        ]
+      },
+      "editor-metadata.svg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 498 }
+        ]
+      },
+      "use-and-css-ids.svg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 839 }
+        ]
+      },
+      "title-viewbox.svg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 365 }
+        ]
+      },
+      "photo-butterfly.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 83,
+            "bytes": 116285
+          }
+        ]
+      },
+      "photo-night-bridge.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 84,
+            "bytes": 245839
+          }
+        ]
+      },
+      "photo-rhino.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 80,
+            "bytes": 114490
+          }
+        ]
+      },
+      "photo-sunset.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 83,
+            "bytes": 201051
+          }
+        ]
+      }
+    },
+    "webp": {
+      "gradient.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 1230
+          }
+        ]
+      },
+      "gradient-16bit.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "near-lossless",
+            "quality": 60,
+            "bytes": 15942
+          }
+        ]
+      },
+      "screenshot.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 52,
+            "bytes": 11398
+          }
+        ]
+      },
+      "logo-alpha.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "near-lossless",
+            "quality": 20,
+            "bytes": 2234
+          }
+        ]
+      },
+      "semi-transparent.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 30,
+            "bytes": 6078
+          }
+        ]
+      },
+      "icon-6x6.png": {
+        "status": "optimised",
+        "warnings": ["W_TOO_SMALL_TO_SCORE"],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 72
+          }
+        ]
+      },
+      "text-chunks.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 88,
+            "bytes": 19094
+          }
+        ]
+      },
+      "orientation-6.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 87,
+            "bytes": 20840
+          }
+        ]
+      },
+      "display-p3.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 38,
+            "bytes": 1234
+          }
+        ]
+      },
+      "lossy.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 79,
+            "bytes": 22038
+          }
+        ]
+      },
+      "lossless.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 2810
+          }
+        ]
+      },
+      "animated.webp": {
+        "status": "failed",
+        "error": "E_ANIMATED",
+        "warnings": [],
+        "outputs": []
+      },
+      "exif.avif": {
+        "status": "optimised",
+        "warnings": ["W_NOT_CONVERTED"],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "avif",
+            "method": "strip",
+            "bytes": 16387
+          }
+        ]
+      },
+      "rotated-xmp.avif": {
+        "status": "optimised",
+        "warnings": ["W_NOT_CONVERTED"],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "avif",
+            "method": "strip",
+            "bytes": 16482
+          }
+        ]
+      },
+      "editor-metadata.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 498 }
+        ]
+      },
+      "use-and-css-ids.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 839 }
+        ]
+      },
+      "title-viewbox.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 365 }
+        ]
+      },
+      "photo-butterfly.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 89,
+            "bytes": 126568
+          }
+        ]
+      },
+      "photo-night-bridge.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 85,
+            "bytes": 234186
+          }
+        ]
+      },
+      "photo-rhino.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 81,
+            "bytes": 106048
+          }
+        ]
+      },
+      "photo-sunset.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 85,
+            "bytes": 197586
+          }
+        ]
+      }
+    },
+    "avif": {
+      "gradient.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 22,
+            "bytes": 659
+          }
+        ]
+      },
+      "gradient-16bit.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 87,
+            "bytes": 14973
+          }
+        ]
+      },
+      "screenshot.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 44,
+            "bytes": 7817
+          }
+        ]
+      },
+      "logo-alpha.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 24,
+            "bytes": 1605
+          }
+        ]
+      },
+      "semi-transparent.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 20,
+            "bytes": 766
+          }
+        ]
+      },
+      "icon-6x6.png": {
+        "status": "optimised",
+        "warnings": ["W_TOO_SMALL_TO_SCORE", "W_NOT_CONVERTED"],
+        "outputs": [
+          { "role": "same", "format": "png", "method": "strip", "bytes": 95 }
+        ]
+      },
+      "text-chunks.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 71,
+            "bytes": 15223
+          }
+        ]
+      },
+      "orientation-6.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 64,
+            "bytes": 15700
+          }
+        ]
+      },
+      "display-p3.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 20,
+            "bytes": 804
+          }
+        ]
+      },
+      "lossy.webp": {
+        "status": "optimised",
+        "warnings": ["W_NOT_CONVERTED"],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "webp",
+            "method": "strip",
+            "bytes": 22822
+          }
+        ]
+      },
+      "lossless.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 20,
+            "bytes": 1007
+          }
+        ]
+      },
+      "animated.webp": {
+        "status": "failed",
+        "error": "E_ANIMATED",
+        "warnings": [],
+        "outputs": []
+      },
+      "exif.avif": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 55,
+            "bytes": 15324
+          }
+        ]
+      },
+      "rotated-xmp.avif": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 59,
+            "bytes": 15530
+          }
+        ]
+      },
+      "editor-metadata.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 498 }
+        ]
+      },
+      "use-and-css-ids.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 839 }
+        ]
+      },
+      "title-viewbox.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 365 }
+        ]
+      },
+      "photo-butterfly.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 66,
+            "bytes": 75307
+          }
+        ]
+      },
+      "photo-night-bridge.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 64,
+            "bytes": 157015
+          }
+        ]
+      },
+      "photo-rhino.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 59,
+            "bytes": 86700
+          }
+        ]
+      },
+      "photo-sunset.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 64,
+            "bytes": 140489
+          }
+        ]
+      }
+    },
+    "suite": {
+      "gradient.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 22,
+            "bytes": 659
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 1230
+          },
+          {
+            "role": "fallback",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 1299
+          }
+        ]
+      },
+      "gradient-16bit.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 87,
+            "bytes": 14973
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "near-lossless",
+            "quality": 60,
+            "bytes": 15942
+          },
+          {
+            "role": "fallback",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 53224
+          }
+        ]
+      },
+      "screenshot.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 44,
+            "bytes": 7817
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 52,
+            "bytes": 11398
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 90,
+            "bytes": 27845
+          }
+        ]
+      },
+      "logo-alpha.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 24,
+            "bytes": 1605
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "near-lossless",
+            "quality": 20,
+            "bytes": 2234
+          },
+          {
+            "role": "fallback",
+            "format": "png",
+            "method": "strip",
+            "bytes": 4661
+          }
+        ]
+      },
+      "semi-transparent.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 20,
+            "bytes": 766
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 30,
+            "bytes": 6078
+          },
+          {
+            "role": "fallback",
+            "format": "png",
+            "method": "lossless",
+            "bytes": 8712
+          }
+        ]
+      },
+      "icon-6x6.png": {
+        "status": "optimised",
+        "warnings": ["W_TOO_SMALL_TO_SCORE"],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 72
+          },
+          {
+            "role": "fallback",
+            "format": "png",
+            "method": "strip",
+            "bytes": 95
+          }
+        ]
+      },
+      "text-chunks.png": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 71,
+            "bytes": 15223
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 88,
+            "bytes": 19094
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 94,
+            "bytes": 23490
+          }
+        ]
+      },
+      "orientation-6.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 64,
+            "bytes": 15700
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 80,
+            "bytes": 19257
+          }
+        ]
+      },
+      "display-p3.jpg": {
+        "status": "optimised",
+        "warnings": ["W_ICC_KEPT"],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 20,
+            "bytes": 804
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 38,
+            "bytes": 1234
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "strip",
+            "bytes": 6497
+          }
+        ]
+      },
+      "lossy.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 79,
+            "bytes": 22038
+          }
+        ]
+      },
+      "lossless.webp": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 20,
+            "bytes": 1007
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossless",
+            "bytes": 2810
+          }
+        ]
+      },
+      "animated.webp": {
+        "status": "failed",
+        "error": "E_ANIMATED",
+        "warnings": [],
+        "outputs": []
+      },
+      "exif.avif": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 55,
+            "bytes": 15324
+          }
+        ]
+      },
+      "rotated-xmp.avif": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 59,
+            "bytes": 15530
+          }
+        ]
+      },
+      "editor-metadata.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 498 }
+        ]
+      },
+      "use-and-css-ids.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 839 }
+        ]
+      },
+      "title-viewbox.svg": {
+        "status": "optimised",
+        "warnings": ["W_SVG_SAME_ONLY"],
+        "outputs": [
+          { "role": "same", "format": "svg", "method": "svgo", "bytes": 365 }
+        ]
+      },
+      "photo-butterfly.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 66,
+            "bytes": 75307
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 83,
+            "bytes": 116285
+          }
+        ]
+      },
+      "photo-night-bridge.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 64,
+            "bytes": 157015
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 85,
+            "bytes": 234186
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 84,
+            "bytes": 245839
+          }
+        ]
+      },
+      "photo-rhino.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 59,
+            "bytes": 86700
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 81,
+            "bytes": 106048
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 80,
+            "bytes": 114490
+          }
+        ]
+      },
+      "photo-sunset.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 64,
+            "bytes": 140489
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 85,
+            "bytes": 197586
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 83,
+            "bytes": 201051
+          }
+        ]
+      }
+    }
+  }
+}

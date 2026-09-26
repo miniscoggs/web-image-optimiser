@@ -199,6 +199,22 @@
       "licence": "MIT"
     },
     {
+      "file": "rotated-xmp.avif",
+      "kind": "scene",
+      "format": "avif",
+      "width": 320,
+      "height": 480,
+      "alpha": false,
+      "animated": false,
+      "bitDepth": 8,
+      "orientation": 1,
+      "icc": "srgb",
+      "metadata": ["exif", "gps", "xmp"],
+      "notes": "Stored 480x320 with the marker top-left; an irot property turns it 90 degrees clockwise. AVIF orientation lives in irot, not EXIF, so sharp reports none. Carries an sRGB rICC colour property before irot in ipco, plus Exif and XMP items.",
+      "source": "fixtures/generate.mjs",
+      "licence": "MIT"
+    },
+    {
       "file": "editor-metadata.svg",
       "kind": "illustration",
       "format": "svg",

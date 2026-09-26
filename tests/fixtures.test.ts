@@ -1,34 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
+import { FIXTURE_DIR, METADATA_KINDS, fixtures } from "./fixtureManifest.js";
+import type { FixtureEntry } from "./fixtureManifest.js";
 
-const METADATA_KINDS = [
-  "comment",
-  "editor",
-  "exif",
-  "gps",
-  "iptc",
-  "text",
-  "xmp",
-] as const;
-
-type FixtureEntry = {
-  file: string;
-  kind: string;
-  format: "png" | "jpeg" | "webp" | "avif" | "svg";
-  width: number;
-  height: number;
-  alpha: boolean;
-  animated: boolean;
-  bitDepth: 8 | 16;
-  orientation: number;
-  icc: "srgb" | "non-srgb" | null;
-  metadata: (typeof METADATA_KINDS)[number][];
-  source: string;
-  licence: string;
-};
-
-const FIXTURE_DIR = new URL("../fixtures/", import.meta.url);
 const SHARP_FORMATS = {
   png: "png",
   jpeg: "jpeg",
@@ -37,12 +12,6 @@ const SHARP_FORMATS = {
   svg: "svg",
 } satisfies Record<FixtureEntry["format"], string>;
 const IMAGE_FILE = /\.(png|jpe?g|webp|avif|svg)$/;
-
-const manifestText = await readFile(
-  new URL("manifest.json", FIXTURE_DIR),
-  "utf8"
-);
-const { fixtures } = JSON.parse(manifestText) as { fixtures: FixtureEntry[] };
 
 describe("fixture manifest", () => {
   it("lists every fixture file exactly once", async () => {

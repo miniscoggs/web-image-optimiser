@@ -6,9 +6,9 @@ These are promises to users. Never weaken them, and cover every change to the wr
 
 - Never write an output larger than its input.
 - Every file that doesn't fail ends the run without its metadata. When no candidate is smaller than the input, write the lossless strip of the source in its own format instead, with the warning `W_NOT_CONVERTED` when another format was asked for. A strip only removes bytes, so it is never larger. The result is `kept-original`, with nothing written, only when there is nothing to strip.
-- The only metadata kept is an EXIF block holding just Orientation (when it isn't 1), a non-sRGB ICC profile (with the warning `W_ICC_KEPT`), and the JPEG APP14 "Adobe" segment, which controls colour decoding.
-- An output whose real path matches its input's fails with `E_OUTPUT_IS_INPUT` unless `--in-place` is given. Compare paths case-insensitively on Windows and macOS. `--out-dir` doesn't exempt an output that lands on its input.
-- An existing output that is not the input is only replaced with `--overwrite`.
+- The only metadata kept is an EXIF block holding just Orientation (when it isn't 1), a non-sRGB ICC profile (with the warning `W_ICC_KEPT`), and what changes how the pixels decode or display: JPEG's APP0 "JFIF" and APP14 "Adobe" segments, PNG's `tRNS`, `gAMA`, `cHRM`, `sRGB`, `cICP`, `mDCV` and `cLLI` chunks, and AVIF's `irot` and `imir` properties, which hold its orientation.
+- An output that lands on its input fails with `E_OUTPUT_IS_INPUT` unless `--in-place` is given. Detect it by file identity, or by path compared case-insensitively on Windows and macOS where there is none. `--out-dir` doesn't exempt an output that lands on its input. The only exception is an output identical to the input, such as a suite's unchanged fallback, which isn't written at all.
+- An existing output that is not the input is only replaced with `--overwrite`. Otherwise the file is skipped with `W_OUTPUT_EXISTS`.
 - Every write goes to a temp file in the destination directory and is then renamed atomically. A run stopped by Ctrl+C or SIGTERM leaves no temp files behind.
 - `--dry-run` writes nothing.
 - The CLI never prompts.

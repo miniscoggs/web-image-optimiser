@@ -152,4 +152,4 @@ async function score(reference: MetricsImage, distorted: MetricsImage) {
   return lowest;
 }
 
-export { isDownscaledForScoring, isScorable, score };
+export { MAX_SCORED_PIXELS, isDownscaledForScoring, isScorable, score };

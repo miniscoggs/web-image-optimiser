@@ -27,28 +27,22 @@ function greyImage(width: number, height: number, marked: boolean) {
 }
 
 describe("score with images too large for the scorer", () => {
-  it(
-    "resizes both to at most 26 MP, keeping the aspect ratio",
-    {
-      timeout: 30_000, // real flatten and resize of 32 MP; ~6 s on the intel mac runner
-    },
-    async () => {
-      const reference = greyImage(8000, 4000, false); // 32 MP
-      const distorted = greyImage(8000, 4000, true);
+  it("resizes both to at most 26 MP, keeping the aspect ratio", async () => {
+    const reference = greyImage(8000, 4000, false); // 32 MP
+    const distorted = greyImage(8000, 4000, true);
 
-      expect(isDownscaledForScoring(reference)).toBe(true);
-      await expect(score(reference, distorted)).resolves.toBe(75);
+    expect(isDownscaledForScoring(reference)).toBe(true);
+    await expect(score(reference, distorted)).resolves.toBe(75);
 
-      const call = scoreSsimulacra2.mock.calls[0];
+    const call = scoreSsimulacra2.mock.calls[0];
 
-      assert(call, "the wasm scorer was not called");
-      const [scoredReference, scoredDistorted, width, height] = call;
+    assert(call, "the wasm scorer was not called");
+    const [scoredReference, scoredDistorted, width, height] = call;
 
-      expect(width * height).toBeLessThanOrEqual(26_000_000);
-      expect(width * height).toBeGreaterThan(25_900_000);
-      expect(width / height).toBeCloseTo(2, 2);
-      expect(scoredReference.length).toBe(width * height * 3);
-      expect(scoredDistorted.length).toBe(width * height * 3);
-    }
-  );
+    expect(width * height).toBeLessThanOrEqual(26_000_000);
+    expect(width * height).toBeGreaterThan(25_900_000);
+    expect(width / height).toBeCloseTo(2, 2);
+    expect(scoredReference.length).toBe(width * height * 3);
+    expect(scoredDistorted.length).toBe(width * height * 3);
+  });
 });

@@ -15,11 +15,13 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 
 | Command                      | Purpose                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run build`              | Compile `src/` into `dist/`, and copy `wasm/pkg` into `dist/wasm`                                        |
+| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm`, and write the JSON Schema files into `dist/schema` |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
 | `npm test`                   | Vitest, then a type-check of `src/` and `tests/`                                                         |
 | `npm run build:wasm`         | Rebuild `wasm/pkg` in the pinned Docker image (needs a running Docker daemon, no local Rust). Run it after any change under `wasm/`, and commit the result |
 | `node wasm/bench.mjs`        | Time one score at 1 MP and 12 MP. Re-run it after changing the WASM build, and update the numbers in `design-patterns.md` |
+| `node scripts/bench-encoders.mjs [--target 80]` | After `npm run build`, compare AVIF and WebP encoder settings by the bytes each needs to reach the target score. Re-run it after bumping sharp, and update `docs/encoding.md` and the constants in `src/encode/` |
 | `node fixtures/ssimulacra2/generate.mjs <ssimulacra2> <libjxl version>` | Rebuild the metric validation pairs and record libjxl's reference scores, using the `ssimulacra2` binary from a libjxl release. Run it only to change the pairs |
+| `node scripts/update-golden.mjs` | After `npm run build`, rewrite `tests/golden/golden.json` from what the optimiser decides for every fixture in every mode. Every change it makes is an API change: follow the `update-image-engine` skill |
 | `node fixtures/generate.mjs` | Rebuild the synthetic fixtures and `manifest.json`; `--photos` also re-derives the photos. Run it only to change a fixture, and review every changed file |

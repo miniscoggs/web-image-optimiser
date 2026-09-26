@@ -1,19 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { decodeForScoring } from "../../src/metrics/index.js";
-
-const FIXTURE_DIR = new URL("../../fixtures/", import.meta.url);
-
-/**
- * Returns the filesystem path of a fixture.
- *
- * @param file - File name inside fixtures/.
- */
-function fixturePath(file: string) {
-  return fileURLToPath(new URL(file, FIXTURE_DIR));
-}
+import { fixturePath } from "../fixtureManifest.js";
 
 describe("decodeForScoring", () => {
   it("returns 8-bit RGBA for an opaque image", async () => {
@@ -69,5 +58,14 @@ describe("decodeForScoring", () => {
     const fromBytes = await decodeForScoring(await readFile(path));
 
     expect(fromBytes.data.equals(fromPath.data)).toBe(true);
+  });
+
+  it("renders an SVG at a given density", async () => {
+    const path = fixturePath("title-viewbox.svg");
+    const standard = await decodeForScoring(path);
+    const doubled = await decodeForScoring(path, { density: 144 });
+
+    expect([standard.width, standard.height]).toEqual([64, 64]);
+    expect([doubled.width, doubled.height]).toEqual([128, 128]);
   });
 });
