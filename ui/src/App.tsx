@@ -15,7 +15,7 @@ import { toRunResult } from "./runState.js";
 import type { RunState } from "./runState.js";
 import useRun from "./useRun.js";
 
-const DEFAULT_OPTIONS: RunOptions = { to: "webp", target: "high" }; // the cli's
+const DEFAULT_OPTIONS: RunOptions = { to: "suite", target: "web" }; // not the cli's webp and high: the ui prepares a web page's images (the user's decision)
 
 /**
  * Describes where a run is: what to do first, its progress, its totals, or why it ended.

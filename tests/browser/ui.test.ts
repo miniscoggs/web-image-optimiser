@@ -54,6 +54,8 @@ describe.skipIf(!existsSync(DIST_ENTRY))("wio ui in a browser", () => {
     });
     await page.goto(pathToFileURL(server.openFile).href); // as wio ui opens it, from its forwarding page
     await page.getByText("logo-alpha.png", { exact: true }).waitFor();
+    await page.getByText("WebP", { exact: true }).click(); // the radio's label, since the radio takes no pointer
+    await page.getByLabel("Quality target").selectOption("high");
     await page.getByRole("button", { name: "Run 1 image" }).click();
     await page.getByRole("button", { name: "Compare logo-alpha.png" }).click();
 

@@ -25,3 +25,4 @@ Nothing released yet. Changes since work began:
   - `suite`, `lossless.webp`: a palette PNG of 1.21 kB became the fallback, where there was none, and the lossless WebP (2.81 kB), now larger than it, was dropped; the AVIF is unchanged.
 - Batches run each lane in a child process rather than a worker thread, so each has its own pool of threads for sharp's work: 9 AVIF photos went from 270 s to 140 s on a 20-thread machine, with the same outputs. A crash inside sharp's native code now fails only that file, with `E_INTERNAL`. The UI server's re-encodes and diff maps run in a child process too.
 - After a run, the comparison UI notes each file its copied command would fail because an output replaces its original, or skip because an output exists, with the flag that allows it.
+- The comparison UI starts at `suite` mode and the `web` target, where the command line's defaults stay `webp` and `high`.

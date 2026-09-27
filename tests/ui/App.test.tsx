@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("lists the folder's images and runs the ones picked, with the options chosen", async () => {
+  it("lists the folder's images and runs the ones picked, in suite mode at the web target to start", async () => {
     const events = suiteRun()
       .map((event) => `data: ${JSON.stringify(event)}\n\n`)
       .join("");
@@ -74,9 +74,8 @@ describe("App", () => {
     expect(screen.getByText("2 of 2 picked")).toBeDefined();
 
     fireEvent.click(screen.getAllByRole("checkbox")[1] as HTMLElement); // logo.svg
-    fireEvent.click(screen.getByRole("radio", { name: "Suite" }));
     expect(
-      screen.getByText("wio photos/cat.png --to suite --target high")
+      screen.getByText("wio photos/cat.png --to suite --target web")
     ).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Run 1 image" }));
@@ -92,7 +91,7 @@ describe("App", () => {
         body: JSON.stringify({
           files: ["root/photos/cat.png"],
           to: "suite",
-          target: "high",
+          target: "web",
         }),
       })
     );
@@ -123,7 +122,6 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByText("photos/cat.png");
-    fireEvent.click(screen.getByRole("radio", { name: "Suite" }));
     fireEvent.click(screen.getByRole("button", { name: "Run 2 images" }));
 
     const note = await screen.findByRole("note");
