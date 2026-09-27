@@ -4,6 +4,7 @@ const QUALITY_RANGES = {
   webp: [30, 95],
   avif: [20, 90],
   jpeg: [40, 95],
+  png: [1, 100], // palette: libimagequant's quality
 } as const satisfies Record<string, readonly [number, number]>;
 
 export default QUALITY_RANGES;

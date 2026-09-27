@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
+import picomatch from "picomatch";
 import { convertPathToPattern, glob, isDynamicPattern } from "tinyglobby";
 import {
   IGNORES_CASE,
@@ -89,12 +90,7 @@ async function globImages(
   pattern: string,
   options: ExpandOptions
 ): Promise<FoundInput[]> {
-  const parts = pattern.split("/");
-  const fixed = parts.slice(
-    0,
-    parts.findIndex((part) => isDynamicPattern(part))
-  );
-  const base = fixed.length === 0 ? "." : fixed.join("/") || "/";
+  const base = picomatch.scan(pattern).base || "."; // the fixed start, eg src for src/{icons/raw,img}/*.png
   const matches = await glob(pattern, {
     absolute: path.isAbsolute(pattern),
     caseSensitiveMatch: !IGNORES_CASE,
@@ -105,7 +101,7 @@ async function globImages(
     .filter((match) => formatOfExtension(match) !== undefined)
     .map((match) => {
       const filePath = path.normalize(match);
-      const subfolder = path.dirname(path.relative(base, filePath));
+      const subfolder = relativeInside(base, path.dirname(filePath)) ?? ""; // a match above the base, eg through .., goes straight into the output folder
 
       return {
         path: filePath,
@@ -204,7 +200,9 @@ async function expandInputs(
   const unique = new Map<string, FoundInput>();
 
   for (const input of inputs) {
-    found.push(...(await expandInput(input, options)));
+    for (const each of await expandInput(input, options)) {
+      found.push(each); // spreading 125,000 or more arguments overflows the stack
+    }
   }
   for (const input of withoutEarlierOutputs(found, options.mode)) {
     const key = comparablePath(input.path);

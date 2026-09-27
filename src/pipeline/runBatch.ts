@@ -5,7 +5,7 @@ import type { FileTask } from "./executors.js";
 import failedResult from "./failedResult.js";
 import { resolveSettings } from "./resolveSettings.js";
 import type { PipelineSettings } from "./resolveSettings.js";
-import runTool from "./runTool.js";
+import toolVersions from "./toolVersions.js";
 import type {
   PipelineEvent,
   PipelineFileResult,
@@ -27,15 +27,15 @@ type BatchContext = {
   concurrency?: number;
 };
 
-const WORKER_MEMORY = 4 * 1024 ** 3; // a worker's wasm scorer grows to 4 GiB on a 26 MP image
+const LANE_MEMORY = 4 * 1024 ** 3; // a lane's wasm scorer grows to 4 GiB on a 26 MP image
 
 /**
  * Returns how many files to optimise at once by default: one fewer than the CPUs, and no more
- * than the memory holds at a worker's worst case.
+ * than the memory holds at a lane's worst case.
  */
 function defaultConcurrency() {
   const byCpu = availableParallelism() - 1;
-  const byMemory = Math.floor(totalmem() / WORKER_MEMORY);
+  const byMemory = Math.floor(totalmem() / LANE_MEMORY);
 
   return Math.max(1, Math.min(byCpu, byMemory));
 }
@@ -111,7 +111,7 @@ async function runBatch(
   const stop = () => {
     controller.abort(context.signal?.reason);
   };
-  const tool = runTool();
+  const tool = toolVersions();
   const runOptions = { ...settings, concurrency };
   const files: PipelineFileResult[] = [];
   let next = 0;

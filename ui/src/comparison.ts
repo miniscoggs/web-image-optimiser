@@ -1,4 +1,5 @@
 import QUALITY_RANGES from "../../src/encode/qualityRanges.js";
+import FORMAT_NAMES from "../../src/inspect/formatNames.js";
 import type {
   PipelineFileResult,
   PipelineOutput,
@@ -16,14 +17,6 @@ const ROLE_ORDER: readonly PipelineOutput["role"][] = [
   "avif",
   "fallback",
 ];
-
-const FORMAT_NAMES = {
-  png: "PNG",
-  jpeg: "JPEG",
-  webp: "WebP",
-  avif: "AVIF",
-  svg: "SVG",
-} as const satisfies Record<PipelineOutput["format"], string>;
 
 /**
  * Returns whether a file's result can be compared: it has outputs, and its size is known.
@@ -64,14 +57,14 @@ function outputTitle(output: Pick<PipelineOutput, "role" | "format">) {
 /**
  * Returns what an output pane's quality slider re-encodes in, the qualities it offers, which are
  * those the engine searches, and where it starts: the output's quality when it is lossy, else
- * the top of the range. A lossless format has no slider.
+ * the top of the range. A PNG pane's slider re-encodes it as a palette, and an SVG has none.
  *
  * @param output - The run's output.
  */
 function qualitySliderOf(output: PipelineOutput) {
   const { format } = output;
 
-  if (format === "png" || format === "svg") {
+  if (format === "svg") {
     return undefined;
   }
 

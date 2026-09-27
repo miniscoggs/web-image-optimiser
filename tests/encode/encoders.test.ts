@@ -1,8 +1,10 @@
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
   avifLossy,
   jpegMozjpeg,
   pngLossless,
+  pngPalette,
   webpLossless,
   webpLossy,
   webpNearLossless,
@@ -38,6 +40,7 @@ const ENCODERS: [
   ["avifLossy", (source) => avifLossy(source, 60), "avif"],
   ["jpegMozjpeg", (source) => jpegMozjpeg(source, 80), "jpeg"],
   ["pngLossless", pngLossless, "png"],
+  ["pngPalette", (source) => pngPalette(source, 70), "png"],
 ];
 const LOSSLESS = new Set(["webpLossless", "pngLossless"]);
 
@@ -76,7 +79,22 @@ describe("encoders", () => {
       method: "near-lossless",
       quality: 60,
     });
+    expect(await pngPalette(source, 40)).toMatchObject({
+      method: "lossy",
+      quality: 40,
+    });
     expect(await webpLossless(source)).not.toHaveProperty("quality");
+  });
+
+  it("writes a palette PNG, with fewer colours at a lower quality", async () => {
+    const source = await decodeForScoring(fixturePath("screenshot.png"));
+    const high = await pngPalette(source, 90);
+    const low = await pngPalette(source, 10);
+
+    expect(await sharp(high.bytes).metadata()).toMatchObject({
+      isPalette: true,
+    });
+    expect(low.bytes.length).toBeLessThan(high.bytes.length);
   });
 
   it("refuses WebP over 16383 pixels on a side", async () => {

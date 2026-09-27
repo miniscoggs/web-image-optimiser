@@ -181,8 +181,8 @@ describe("ComparisonViewer", () => {
 
     expect((slider as HTMLInputElement).value).toBe("71");
     expect(
-      within(pane("PNG fallback")).queryByRole("slider", { name: /quality/ })
-    ).toBeNull();
+      within(pane("PNG fallback")).getByRole("slider", { name: /quality/ })
+    ).toHaveProperty("value", "100"); // lossless, so a palette re-encode starts at the top
 
     fireEvent.change(slider, { target: { value: "60" } });
     act(() => {
@@ -219,6 +219,49 @@ describe("ComparisonViewer", () => {
     fireEvent.click(within(webp).getByRole("button", { name: "Reset" }));
     expect(within(webp).getByText("q71")).toBeDefined();
     expect((slider as HTMLInputElement).value).toBe("71");
+  });
+
+  it("asks for no newer quality once closed with a re-encode in flight", async () => {
+    const reply = Promise.withResolvers<Response>();
+    const fetchMock = vi.fn<typeof fetch>(() => reply.promise);
+    const file = suiteResult();
+
+    if (!canCompare(file)) {
+      throw new Error("the result should be comparable");
+    }
+    vi.stubGlobal("fetch", fetchMock);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    const { unmount } = render(
+      <ComparisonViewer file={file} onClose={vi.fn()} />
+    );
+    const slider = within(pane("WebP")).getByRole("slider", {
+      name: "WebP quality",
+    });
+
+    for (const quality of ["60", "50"]) {
+      fireEvent.change(slider, { target: { value: quality } });
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+    }
+    expect(fetchMock).toHaveBeenCalledOnce(); // 50 waits for 60's reply
+    unmount();
+    vi.useRealTimers();
+    reply.resolve(
+      jsonResponse({
+        ref: "session/encodes/1/cat-60.webp",
+        format: "webp",
+        quality: 60,
+        bytes: 9_000,
+        saving: 0.91,
+        score: 80.5,
+        verdict: "very-high",
+        warnings: [],
+      })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50)); // time for the reply to be read
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it("writes the output shown, replacing the original only when asked, then drops the stale tools", async () => {

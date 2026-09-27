@@ -2,9 +2,13 @@ import { copyFile, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eventSchema } from "../../src/schema/contract.js";
-import { apiErrorSchema, uploadResponseSchema } from "../../src/server/api.js";
+import {
+  apiErrorSchema,
+  cliEventSchema,
+  uploadResponseSchema,
+} from "../../src/server/api.js";
 import { fixturePath } from "../fixtureManifest.js";
-import { readEvents, startUiSession } from "./uiSession.js";
+import { readEvents, readRun, startUiSession } from "./uiSession.js";
 import type { UiSession } from "./uiSession.js";
 
 let session: UiSession;
@@ -29,7 +33,8 @@ describe("POST /api/optimise", () => {
       target: "excellent",
     });
     const events = await readEvents(response);
-    const parsed = events.map((event) => eventSchema.parse(event.data));
+    const messages = events.filter((event) => event.name === "message");
+    const parsed = messages.map((event) => eventSchema.parse(event.data));
     const done = parsed.flatMap((event) =>
       event.type === "file-done" ? [event.file] : []
     );
@@ -37,8 +42,10 @@ describe("POST /api/optimise", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/event-stream");
-    expect(events.every((event) => event.name === "message")).toBe(true);
-    expect(parsed).toEqual(events.map((event) => event.data)); // parsing keeps every field
+    expect(
+      events.every((event) => ["message", "cli"].includes(event.name))
+    ).toBe(true);
+    expect(parsed).toEqual(messages.map((event) => event.data)); // parsing keeps every field
     expect(parsed[0]).toMatchObject({
       type: "run-start",
       files: 2,
@@ -50,6 +57,15 @@ describe("POST /api/optimise", () => {
       "root/title-viewbox.svg",
     ]);
     expect(outputs.length).toBeGreaterThan(1);
+    expect(
+      events
+        .filter((event) => event.name === "cli")
+        .map((event) => cliEventSchema.parse(event.data))
+        .toSorted((first, second) => first.index - second.index)
+    ).toEqual([
+      { index: 0, reason: "input", ref: "root/logo-alpha.png" }, // its png fallback, known once chosen
+      { index: 1, reason: "input", ref: "root/title-viewbox.svg" }, // an svg stays svg, known before any work
+    ]);
     for (const output of outputs) {
       expect(output.path).toMatch(/^session\/runs\/\d+\/[01]\/[\w-]+\.\w+$/);
       expect((await session.image(output.path)).status).toBe(200);
@@ -58,7 +74,7 @@ describe("POST /api/optimise", () => {
   });
 
   it("adds the markup a suite run would print, with each output beside its input", async () => {
-    const markupSession = await startUiSession(["photos/logo-alpha.png"]);
+    const markupSession = await startUiSession(["photos/gradient-16bit.png"]);
     const form = new FormData();
     const bytes = await readFile(fixturePath("icon-6x6.png"));
 
@@ -71,13 +87,12 @@ describe("POST /api/optimise", () => {
       const [uploaded] = uploadResponseSchema.parse(await upload.json()).files;
       const run = async (to: string) => {
         const response = await markupSession.post("/api/optimise", {
-          files: ["root/photos/logo-alpha.png", uploaded?.ref],
+          files: ["root/photos/gradient-16bit.png", uploaded?.ref],
           to,
         });
-        const events = await readEvents(response);
+        const { events } = await readRun(response);
 
         return events
-          .map((event) => eventSchema.parse(event.data))
           .flatMap((event) => (event.type === "file-done" ? [event] : []))
           .toSorted((first, second) => first.index - second.index)
           .map((event) => event.file);
@@ -108,10 +123,10 @@ describe("POST /api/optimise", () => {
     const response = await session.post("/api/optimise", {
       files: ["root/title-viewbox.svg", "root/title-viewbox.svg"],
     });
-    const events = await readEvents(response);
-    const failed = events
-      .map((event) => eventSchema.parse(event.data))
-      .find((event) => event.type === "file-done" && event.index === 1);
+    const { events } = await readRun(response);
+    const failed = events.find(
+      (event) => event.type === "file-done" && event.index === 1
+    );
 
     expect(failed).toMatchObject({
       file: {
@@ -140,9 +155,7 @@ describe("POST /api/optimise", () => {
       files: ["root/clash.png", "root/clash.jpg"],
       to: "webp",
     });
-    const events = (await readEvents(response)).map((event) =>
-      eventSchema.parse(event.data)
-    );
+    const { events } = await readRun(response);
     const done = events.flatMap((event) =>
       event.type === "file-done" ? [event] : []
     );
@@ -162,6 +175,76 @@ describe("POST /api/optimise", () => {
       type: "run-done",
       totals: { files: 2, optimised: 1, failed: 1 },
     });
+  });
+
+  it("flags files the copied command would fail for replacing their input, a kept-original one too", async () => {
+    const sameSession = await startUiSession([
+      "display-p3.jpg",
+      "icon-6x6.png",
+    ]);
+
+    try {
+      const response = await sameSession.post("/api/optimise", {
+        files: ["root/display-p3.jpg", "root/icon-6x6.png"],
+        to: "same",
+      });
+      const { events, cli } = await readRun(response);
+      const statuses = events.flatMap((event) =>
+        event.type === "file-done" ? [[event.index, event.file.status]] : []
+      );
+
+      expect(statuses.toSorted()).toEqual([
+        [0, "kept-original"], // the command refuses it before any work
+        [1, "optimised"],
+      ]);
+      expect(
+        cli.toSorted((first, second) => first.index - second.index)
+      ).toEqual([
+        { index: 0, reason: "input", ref: "root/display-p3.jpg" },
+        { index: 1, reason: "input", ref: "root/icon-6x6.png" },
+      ]);
+    } finally {
+      await sameSession.close();
+    }
+  });
+
+  it("flags a file whose output already exists where the command writes it", async () => {
+    await copyFile(
+      fixturePath("icon-6x6.png"),
+      path.join(session.root, "taken.png")
+    );
+    await copyFile(
+      fixturePath("lossy.webp"),
+      path.join(session.root, "taken.webp")
+    );
+
+    const response = await session.post("/api/optimise", {
+      files: ["root/taken.png"],
+      to: "webp",
+    });
+    const { events, cli } = await readRun(response);
+
+    expect(events.at(-1)).toMatchObject({
+      type: "run-done",
+      totals: { optimised: 1 },
+    });
+    expect(cli).toEqual([
+      { index: 0, reason: "exists", ref: "root/taken.webp" },
+    ]);
+  });
+
+  it("sends no cli events when the command would write what the run did", async () => {
+    const response = await session.post("/api/optimise", {
+      files: ["root/logo-alpha.png"],
+      to: "webp",
+    });
+    const { events, cli } = await readRun(response);
+
+    expect(events.at(-1)).toMatchObject({
+      type: "run-done",
+      totals: { optimised: 1 },
+    });
+    expect(cli).toEqual([]);
   });
 
   it("stops the run in progress when a new one starts", async () => {
@@ -213,9 +296,7 @@ describe("POST /api/optimise", () => {
     const response = await session.post("/api/optimise", {
       files: ["root/missing.png", "root/title-viewbox.svg"],
     });
-    const events = (await readEvents(response)).map((event) =>
-      eventSchema.parse(event.data)
-    );
+    const { events } = await readRun(response);
     const done = events.flatMap((event) =>
       event.type === "file-done" ? [event] : []
     );

@@ -1,5 +1,10 @@
 import sharp from "sharp";
-import { avifLossy, jpegMozjpeg, webpLossy } from "../encode/index.js";
+import {
+  avifLossy,
+  jpegMozjpeg,
+  pngPalette,
+  webpLossy,
+} from "../encode/index.js";
 import { inspect } from "../inspect/index.js";
 import readOrFail from "../inspect/readOrFail.js";
 import {
@@ -20,6 +25,7 @@ const ENCODERS = {
   webp: webpLossy,
   avif: avifLossy,
   jpeg: jpegMozjpeg,
+  png: pngPalette,
 } satisfies Record<PixelFormat, unknown>;
 
 /**
@@ -162,11 +168,11 @@ async function diffJob(
 }
 
 /**
- * Runs a {@link PixelJob}, on the UI server's worker thread or, from the TypeScript sources, on
- * the calling one.
+ * Runs a {@link PixelJob}, in the UI server's pixel process or, from the TypeScript sources, on
+ * the calling thread.
  *
  * @param job - The job.
- * @returns How it went; it never rejects, so a reply can always cross a thread.
+ * @returns How it went; it never rejects, so a reply can always reach the server.
  */
 async function runPixelJob(job: PixelJob): Promise<PixelReply> {
   try {

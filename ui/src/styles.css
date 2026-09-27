@@ -404,6 +404,24 @@ input[type="number"]:invalid {
   white-space: nowrap;
 }
 
+.cli-note {
+  grid-column: 1 / -1;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--fair) 40%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--fair) 8%, var(--surface-raised));
+  font-size: var(--text-small);
+}
+
+.cli-note ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.cli-note li {
+  overflow-wrap: anywhere;
+}
+
 /* results */
 
 .run-results {

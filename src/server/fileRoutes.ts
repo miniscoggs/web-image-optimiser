@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { glob } from "tinyglobby";
-import { detectFormat } from "../inspect/detectFormat.js";
+import { SNIFF_BYTES, detectFormat } from "../inspect/detectFormat.js";
 import MIME_TYPES from "../inspect/mimeTypes.js";
 import { IMAGE_PATTERN, formatOfExtension } from "../pipeline/destination.js";
 import ApiError from "./ApiError.js";
@@ -12,9 +12,9 @@ import type { ServerRoutes } from "./http.js";
 import { refOf, resolveRef } from "./refs.js";
 import type { ServerFolders } from "./refs.js";
 
-const SNIFF_BYTES = 16 * 1024; // any format's signature, and an svg's prolog up to its root
-
 const byName = new Intl.Collator(undefined, { numeric: true }).compare; // img2 before img10
+const WINDOWS_FORBIDDEN = /[<>:"|?*\p{Cc}]/gu; // a : would write an ntfs alternate data stream
+const WINDOWS_DEVICE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?=\.|$)/i; // reserved with any extension
 
 /**
  * Describes files for the file list, leaving out any removed since they were found.
@@ -72,12 +72,17 @@ async function listImages(
 }
 
 /**
- * Returns an uploaded file's name without any folders, or `upload` when nothing is left.
+ * Returns an uploaded file's name without any folders, and with what Windows can't store changed
+ * on every platform, so refs stay portable: its forbidden characters and control characters
+ * become `_`, and a device name such as `nul.png` gains one, as `nul_.png`. It is `upload` when
+ * nothing is left.
  *
  * @param name - The name the browser sent.
  */
 function uploadName(name: string) {
-  const base = name.split(/[\\/]/).pop() ?? "";
+  const base = (name.split(/[\\/]/).pop() ?? "")
+    .replace(WINDOWS_FORBIDDEN, "_")
+    .replace(WINDOWS_DEVICE, "$1_");
 
   return base === "" || base === "." || base === ".." ? "upload" : base;
 }

@@ -1,9 +1,7 @@
 import { open } from "node:fs/promises";
-import { detectFormat } from "../inspect/detectFormat.js";
+import { SNIFF_BYTES, detectFormat } from "../inspect/detectFormat.js";
 import { comparablePath, outputClaims } from "./destination.js";
 import type { PipelineMode } from "./types.js";
-
-const SNIFF_BYTES = 16 * 1024; // any format's signature, and an svg's prolog up to its root
 
 /**
  * Reads enough of a file to detect its format from its bytes.

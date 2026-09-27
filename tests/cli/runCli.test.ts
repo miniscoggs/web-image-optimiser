@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCli } from "../../src/cli/index.js";
 import type { CliIo } from "../../src/cli/index.js";
 import {
@@ -365,36 +365,48 @@ describe("wio ui", () => {
   });
 
   /**
-   * Starts `wio ui` in-process, and resolves once it has printed its address.
+   * Starts `wio ui` in-process, and resolves once it has printed its address, or rejects with
+   * its exit and stderr when it ends first.
    *
    * @param argv - The arguments after `ui`.
    */
   async function startUi(argv: string[]) {
     const controller = new AbortController();
     const opened: string[] = [];
+    const address = Promise.withResolvers<string>();
     let stdout = "";
     let stderr = "";
     const running = runCli(["ui", ...argv], {
-      stdout: { write: (text: string) => (stdout += text) },
+      stdout: {
+        write: (text: string) => {
+          stdout += text;
+          if (stdout.endsWith("\n")) {
+            address.resolve(stdout.trim());
+          }
+        },
+      },
       stderr: { write: (text: string) => (stderr += text) },
       color: false,
       progress: false,
       signal: controller.signal,
       openUrl: (url) => opened.push(url),
     });
+    const endedEarly = (outcome: unknown) => {
+      address.reject(
+        new Error(
+          `wio ui ended before printing its address (${String(outcome)}): ${stderr}`
+        )
+      ); // no effect once the address is in
+    };
 
-    running.catch(() => undefined); // awaited by each test
+    running.then(endedEarly, endedEarly); // the tests await running themselves
     started.push({ stop: () => controller.abort(), running });
-    await vi.waitFor(
-      () => {
-        expect(stdout).toMatch(/\n$/);
-      },
-      { timeout: 30_000 } // the first start loads the server's modules, over a second on a slow runner
-    );
     return {
-      url: stdout.trim(),
+      url: await address.promise,
       opened,
-      stderr,
+      get stderr() {
+        return stderr;
+      },
       running,
       stop: () => controller.abort(),
     };

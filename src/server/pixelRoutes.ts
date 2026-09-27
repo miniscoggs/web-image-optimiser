@@ -1,7 +1,7 @@
 import path from "node:path";
 import { verdictFor } from "../metrics/index.js";
 import { outputPath } from "../pipeline/destination.js";
-import type { PipelineWarning } from "../pipeline/index.js";
+import DOWNSCALED_WARNING from "../pipeline/downscaledWarning.js";
 import { diffRequestSchema, encodeRequestSchema } from "./api.js";
 import type { ServerDiffResponse, ServerEncodeResponse } from "./api.js";
 import type { ServerContext } from "./context.js";
@@ -9,12 +9,6 @@ import fileVersion from "./fileVersion.js";
 import type { ServerRoutes } from "./http.js";
 import parseRequest from "./parseRequest.js";
 import { refOf, resolveRef } from "./refs.js";
-
-const DOWNSCALED: PipelineWarning = {
-  code: "W_SCORED_DOWNSCALED",
-  message:
-    "The image is over 26 megapixels, so it was scored at 26 MP and the score is approximate",
-};
 
 /**
  * Returns a cached value, or makes and caches it. A failure isn't kept, so it is retried.
@@ -40,7 +34,7 @@ function remember<Value>(
 
 /**
  * Creates the routes that re-encode an image at a quality and draw diff maps, both of which
- * run on the server's pixel worker and are cached for the session.
+ * run in the server's pixel process and are cached for the session.
  *
  * @param context - The server's state.
  */
@@ -75,7 +69,7 @@ function createPixelRoutes(context: ServerContext): ServerRoutes {
           saving: 1 - encoded.bytes / encoded.inputBytes,
           score: encoded.score,
           verdict: verdictFor(encoded.score),
-          warnings: encoded.downscaled ? [DOWNSCALED] : [],
+          warnings: encoded.downscaled ? [DOWNSCALED_WARNING] : [],
         };
       }
     );

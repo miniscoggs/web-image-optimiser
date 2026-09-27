@@ -13,23 +13,23 @@ description: Optimises images for websites with the `wio` CLI. It strips metadat
 | --- | --- |
 | `webp` (default) | One modern file per image is enough. Every current browser shows WebP |
 | `avif` | The smallest files matter more than time: AVIF encodes are slow |
-| `suite` | The images go on web pages: AVIF, WebP and a JPEG or PNG fallback for `<picture>`, each kept only when smaller than the next. Add `--markup` |
+| `suite` | The images go on web pages: AVIF, WebP and a JPEG or PNG fallback for `<picture>`, each kept only when smaller than the next. Add `--out-dir` and `--markup` |
 | `same` | Files must keep their format, eg assets referenced by name. Needs `--out-dir` or `--in-place` |
 
-SVGs always stay SVG. An output that would replace its input (an SVG, or `same` mode, without `--out-dir`) fails with `E_OUTPUT_IS_INPUT` unless `--in-place` is given.
+SVGs always stay SVG. Without `--out-dir`, an output that would replace its input fails with `E_OUTPUT_IS_INPUT` unless `--in-place` is given. That happens to every file in `same` mode, every SVG, a file already in the format asked for (a WebP in `webp` mode, an AVIF in `avif`, either in `suite`), most JPEGs and PNGs in `suite`, and a file nothing in the asked format beats (`W_NOT_CONVERTED`). So pass `--out-dir` unless replacing the originals was asked for.
 
 `--target` is the lowest quality allowed: `high` (80, the default: not noticeable side by side), `excellent` (85), `visually-lossless` (90), `web` (70), or a number. Don't lower it unless asked.
 
 ## Commands
 
 ```sh
-wio ./images --to webp --json
+wio ./images --to webp --out-dir optimised --json
 wio ./images --recursive --out-dir web --dry-run --json
 wio ./images --to suite --out-dir web/ --markup --json
-wio compare images/photo.jpg images/photo.webp --json
+wio compare images/photo.jpg optimised/photo.webp --json
 ```
 
-1. Writes a WebP beside each image in `images/`.
+1. Writes a WebP of each image in `images/` into `optimised/`.
 2. On a big batch, run with `--dry-run` first: it reports what would be written and writes nothing. Check the result, then run the same command without `--dry-run`.
 3. For web pages: writes the `<picture>` set of each image into `web/`, and adds each file's `markup`.
 4. Scores an optimised image against its original.
@@ -48,7 +48,7 @@ With `--json`, stdout holds exactly one `RunResult` (its JSON Schema ships as `w
 {
   "files": [{
     "input": "images/photo.jpg", "status": "optimised", "bytes": 250000, "width": 1600, "height": 1067,
-    "outputs": [{ "role": "webp", "path": "images/photo.webp", "format": "webp", "method": "lossy",
+    "outputs": [{ "role": "webp", "path": "optimised/photo.webp", "format": "webp", "method": "lossy",
                   "quality": 74, "bytes": 61000, "saving": 0.756, "score": 81.2, "verdict": "very-high" }],
     "warnings": []
   }],

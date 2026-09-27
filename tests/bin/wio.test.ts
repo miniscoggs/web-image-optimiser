@@ -32,11 +32,14 @@ let folder = "";
  * @param args - The arguments.
  * @param onStdout - Called as each chunk of stdout arrives, with the child and everything
  * printed so far.
+ * @param detached - Whether it leads a process group of its own, as a terminal's command does,
+ * so a signal can reach it and its lanes' processes together.
  * @returns The exit code, the signal that ended it, and everything it printed.
  */
 async function wio(
   args: string[],
-  onStdout?: (child: ReturnType<typeof spawn>, printed: string) => void
+  onStdout?: (child: ReturnType<typeof spawn>, printed: string) => void,
+  detached = false
 ) {
   return new Promise<{
     exitCode: number | null;
@@ -45,6 +48,7 @@ async function wio(
   }>((resolve, reject) => {
     const child = spawn(process.execPath, [fileURLToPath(BIN), ...args], {
       cwd: folder,
+      detached,
     });
     let stdout = "";
     let stderr = "";
@@ -121,6 +125,21 @@ async function skillCommands() {
     .filter((line) => line.startsWith("wio "));
 }
 
+const interrupted = new WeakSet<ReturnType<typeof spawn>>();
+
+/**
+ * Sends SIGINT to a child's whole process group, as a terminal's Ctrl+C does, once: a second
+ * makes `wio` quit at once.
+ *
+ * @param child - The child, which leads its group.
+ */
+function interruptGroup(child: ReturnType<typeof spawn>) {
+  if (child.pid !== undefined && !interrupted.has(child)) {
+    interrupted.add(child);
+    process.kill(-child.pid, "SIGINT"); // a negative pid names the group
+  }
+}
+
 beforeEach(async () => {
   folder = await mkdtemp(path.join(tmpdir(), "wio e2e é ü-"));
 });
@@ -134,6 +153,7 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
     const inputs = await copyFixtures("images", [
       ["display-p3.jpg", "photo.jpg"],
       ["gradient-16bit.png", "gradient.png"],
+      ["lossy.webp", "banner.webp"], // already in the default format, so it needs --out-dir
     ]);
     const before = await hashes(inputs);
     const commands = await skillCommands();
@@ -152,16 +172,20 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
     expect(await hashes(inputs)).toEqual(before);
     expect(await listFiles()).toEqual([
       "images",
+      "images/banner.webp",
       "images/gradient.png",
-      "images/gradient.webp",
       "images/photo.jpg",
-      "images/photo.webp",
+      "optimised",
+      "optimised/banner.webp",
+      "optimised/gradient.webp",
+      "optimised/photo.webp",
       "web",
+      "web/banner.webp",
       "web/gradient.avif",
       "web/gradient.png",
       "web/gradient.webp",
       "web/photo.avif",
-      "web/photo.jpg",
+      "web/photo.png", // display-p3.jpg, whose fallback is a palette PNG
       "web/photo.webp",
     ]);
   });
@@ -234,18 +258,26 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
     "stops on Ctrl+C with exit code 130, leaving no temp files",
     async () => {
       await copyFixtures("images", [
-        ["logo-alpha.png", "logo.png"],
+        ["photo-butterfly.jpg", "butterfly.jpg"],
         ["semi-transparent.png", "semi.png"],
       ]);
 
-      const { exitCode, stderr } = await wio(
+      const { exitCode, stdout, stderr } = await wio(
         ["images", "--to", "suite", "--out-dir", "web", "--ndjson"],
-        (child) => child.kill("SIGINT") // the first event means the handlers are in place
+        (child, printed) => {
+          if (printed.includes('"file-start"')) {
+            setTimeout(() => {
+              interruptGroup(child);
+            }, 1_000); // once the lanes' processes are at work, so they must ignore it and finish their step
+          }
+        },
+        true
       );
       const files = await listFiles();
 
       expect(exitCode).toBe(130);
       expect(stderr).toContain("wio: stopping");
+      expect(stdout).not.toContain("E_INTERNAL"); // a lane's process killed by the signal
       expect(files.filter((file) => file.endsWith(".tmp"))).toEqual([]);
     }
   );
@@ -278,10 +310,11 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
 
               return { folder: await findSessionFolder(api), files };
             } finally {
-              child.kill("SIGINT"); // even when the probe fails, so the test doesn't hang
+              interruptGroup(child); // even when the probe fails, so the test doesn't hang
             }
           })();
-        }
+        },
+        true
       );
       const probed = await probe;
 

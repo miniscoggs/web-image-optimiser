@@ -24,7 +24,7 @@ The candidates for each format are:
 | WebP | A lossy quality search. A PNG input also tries lossless WebP and a near-lossless search (levels 20 to 80). A lossless WebP input is re-encoded losslessly only |
 | AVIF | A lossy quality search |
 | JPEG | A lossy quality search with mozjpeg |
-| PNG | Lossless PNG |
+| PNG | Lossless PNG, and a palette search: at most 256 colours, as few as the quality allows. A photo fails it at the top quality, which ends its search there |
 | The input's own format | Also the lossless strip: the input with its metadata removed and its image data untouched, which scores 100 |
 
 An image smaller than 8x8 pixels can't be scored, so it only gets lossless candidates and the warning `W_TOO_SMALL_TO_SCORE`. An image over 26 megapixels is scored at 26 MP, so its scores are approximate and it gets `W_SCORED_DOWNSCALED`.
@@ -49,13 +49,13 @@ Re-encoding converts a wide-gamut image, such as a Display P3 photo, to sRGB, an
 
 An output goes in `outDir`, or next to its input, named after the input with the output format's extension. An output in the input's own format keeps the input's extension when it fits, such as `.jpeg` or `.PNG`.
 
-- **Replacing the input:** an output that would replace its own input, as `same` mode does without `outDir`, fails the file with `E_OUTPUT_IS_INPUT` unless `inPlace` is set. `outDir` avoids it only by pointing somewhere else, so an `outDir` that is the input's own folder still fails, however it is spelt. The one exception is a suite's fallback that is the input unchanged: it is already in place, so it isn't written.
+- **Replacing the input:** an output that would replace its own input fails the file with `E_OUTPUT_IS_INPUT` unless `inPlace` is set. Without `outDir`, that is every file in `same` mode and every SVG; a file already in the format asked for (a WebP in `webp`, an AVIF in `avif`, either in `suite`); in `suite`, a JPEG or PNG whose fallback isn't the input unchanged, which is most camera JPEGs; and a file whose strip fallback is written (`W_NOT_CONVERTED`). So `suite` all but needs an `outDir`. `outDir` avoids it only by pointing somewhere else, so an `outDir` that is the input's own folder still fails, however it is spelt. The one exception is a suite's fallback that is the input unchanged: it is already in place, so it isn't written.
 - **Existing files:** when an output already exists, the file is `skipped` with `W_OUTPUT_EXISTS`, unless `overwrite` is set. The outputs the mode aims for (the AVIF and WebP in `suite`) are checked before any work is done, so re-running a batch skips finished files quickly.
 - **Safe writes:** each output is written to a temp file in its destination folder, and the files are renamed into place only once every one of them is written. Aborting through the `signal`, or a failed write, leaves no temp files. `dryRun` works everything out and writes nothing.
 
 ## Batches
 
-`optimiseBatch` runs many files with the same rules, several at once, each on a worker thread of its own, because scoring blocks the thread it runs on. Each encode itself runs on one thread: libaom splits an AVIF into tiles when given more, which makes it larger at the same quality and makes its bytes depend on the machine's CPU count. So one large image takes longer than it would with every core behind it, but the files come out smaller and the same everywhere. By default it runs one file fewer than the CPU count at once, capped at one per 4 GiB of memory, because scoring a very large image can take that much.
+`optimiseBatch` runs many files with the same rules, several at once, each in a child process of its own, because scoring blocks the thread it runs on, and each process has its own pool of threads for sharp's work. A crash inside sharp's native code then fails only that file, with `E_INTERNAL`. Each encode itself runs on one thread: libaom splits an AVIF into tiles when given more, which makes it larger at the same quality and makes its bytes depend on the machine's CPU count. So one large image takes longer than it would with every core behind it, but the files come out smaller and the same everywhere. By default it runs one file fewer than the CPU count at once, capped at one per 4 GiB of memory, because scoring a very large image can take that much.
 
 - **Conflicts:** before any work, an input fails with `E_OUTPUT_CONFLICT` when one of its possible outputs could land on another input, or on a path an earlier input's outputs could use. For example, `photo.png` and `photo.jpg` would both write `photo.webp`. Formats come from the first bytes of each file, so a PNG named `photo.jpg` counts as writing `photo.png`. The same file given twice also conflicts. Give such inputs their own output folders: each input can carry an `outDir` of its own.
 - **Unexpected errors:** a bug hit by one file fails that file with `E_INTERNAL`, and the rest of the batch carries on.

@@ -168,8 +168,15 @@ describe("optimiseFile", () => {
     });
 
     it("leaves a suite's unchanged fallback where it is", async () => {
-      const input = await copyFixture("display-p3.jpg");
-      const before = await readFile(input);
+      const icon = await readFile(fixturePath("icon-6x6.png"));
+      const input = path.join(folder, "clean-icon.png");
+      const clean = stripLossless(icon, {
+        format: "png",
+        orientation: 1,
+      }).bytes; // nothing left to strip, and too small to score, so no palette search
+
+      await writeFile(input, clean);
+
       const result = await optimiseFile(input, { to: "suite" });
 
       expect(result.status).toBe("optimised");
@@ -177,15 +184,11 @@ describe("optimiseFile", () => {
         role: "fallback",
         path: input,
         method: "strip",
-        bytes: before.length,
+        bytes: clean.length,
         saving: 0,
       });
-      expect(await readFile(input)).toEqual(before);
-      expect(await list()).toEqual([
-        "display-p3.avif",
-        "display-p3.jpg",
-        "display-p3.webp",
-      ]);
+      expect(await readFile(input)).toEqual(clean);
+      expect(await list()).toEqual(["clean-icon.png", "clean-icon.webp"]);
     });
 
     it("keeps an input with nothing to strip that no conversion beats", async () => {

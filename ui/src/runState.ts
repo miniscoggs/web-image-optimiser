@@ -3,11 +3,19 @@ import type {
   PipelineFileResult,
   PipelineRunResult,
 } from "../../src/pipeline/types.js";
+import type { ServerCliEvent } from "../../src/server/api.js";
+import type { RunEvent } from "./api.js";
 
 /**
- * One file of a run: its ref, whether it is being worked on, and its result once done.
+ * One file of a run: its ref, whether it is being worked on, its result once done, and what
+ * would fail or skip it when the copied command runs, if anything would.
  */
-type RunFile = { ref: string; running: boolean; result?: PipelineFileResult };
+type RunFile = {
+  ref: string;
+  running: boolean;
+  result?: PipelineFileResult;
+  cliBlock?: Omit<ServerCliEvent, "index">;
+};
 
 /**
  * A run as the UI shows it, built up from the server's events.
@@ -26,7 +34,7 @@ type RunState = {
  */
 type RunAction =
   | { type: "begin"; refs: string[] }
-  | { type: "event"; event: PipelineEvent }
+  | { type: "event"; event: RunEvent }
   | { type: "end" }
   | { type: "stop" }
   | { type: "fail"; error: string };
@@ -79,8 +87,12 @@ function endEarly(
  * @param state - The run.
  * @param event - The event.
  */
-function applyEvent(state: RunState, event: PipelineEvent): RunState {
+function applyEvent(state: RunState, event: RunEvent): RunState {
   switch (event.type) {
+    case "cli":
+      return updateFile(state, event.index, {
+        cliBlock: { reason: event.reason, ref: event.ref },
+      });
     case "run-start":
       return { ...state, start: event };
     case "file-start":

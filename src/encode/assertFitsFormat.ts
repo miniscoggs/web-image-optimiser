@@ -1,3 +1,4 @@
+import FORMAT_NAMES from "../inspect/formatNames.js";
 import type { MetricsImage } from "../metrics/index.js";
 import { OptimiserError } from "../schema/index.js";
 import type { EncodeFormat } from "./types.js";
@@ -5,12 +6,10 @@ import type { EncodeFormat } from "./types.js";
 // the longest side each encoder writes: libwebp's 14-bit size fields, sharp's heif check and
 // libjpeg's JPEG_MAX_DIMENSION; png's limit is far beyond anything sharp decodes
 const MAX_DIMENSIONS = {
-  webp: { name: "WebP", max: 16383 },
-  avif: { name: "AVIF", max: 16384 },
-  jpeg: { name: "JPEG", max: 65500 },
-} as const satisfies Partial<
-  Record<EncodeFormat, { name: string; max: number }>
->;
+  webp: 16383,
+  avif: 16384,
+  jpeg: 65500,
+} as const satisfies Partial<Record<EncodeFormat, number>>;
 
 /**
  * Checks that an image fits a format's largest dimensions, so a pipeline can drop that format
@@ -24,12 +23,12 @@ function assertFitsFormat(
   source: MetricsImage,
   format: keyof typeof MAX_DIMENSIONS
 ) {
-  const { name, max } = MAX_DIMENSIONS[format];
+  const max = MAX_DIMENSIONS[format];
 
   if (source.width > max || source.height > max) {
     throw new OptimiserError(
       "E_TOO_LARGE_FOR_FORMAT",
-      `${name} images can be at most ${max} pixels on each side; this one is ${source.width}x${source.height}`
+      `${FORMAT_NAMES[format]} images can be at most ${max} pixels on each side; this one is ${source.width}x${source.height}`
     );
   }
 }

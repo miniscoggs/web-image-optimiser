@@ -7,7 +7,7 @@ import {
 } from "commander";
 import { PIPELINE_MODES, PIPELINE_TARGET_PRESETS } from "../pipeline/index.js";
 import type { PipelineTargetPreset } from "../pipeline/index.js";
-import runTool from "../pipeline/runTool.js";
+import toolVersions from "../pipeline/toolVersions.js";
 import runCompare from "./runCompare.js";
 import type { CompareFlags } from "./runCompare.js";
 import runOptimise from "./runOptimise.js";
@@ -24,6 +24,10 @@ const DOCS_URL =
 const OPTIMISE_HELP = `
 Targets are SSIMULACRA 2 scores: visually-lossless (90), excellent (85), high (80) or
 web (70), or any number from 0 to 100. SVGs always use 90.
+
+Without --out-dir, an output that would replace its input fails with E_OUTPUT_IS_INPUT unless
+--in-place is given: every file in same mode, a file already in the format asked for, such as
+a WebP in webp mode, and most files in suite.
 
 Examples:
   wio photos                                WebP beside each image in photos/
@@ -49,7 +53,7 @@ Exit codes: 0 when compared, 1 when the comparison failed, 2 for a usage error.`
 const UI_HELP = `
 The UI lists the folder's images, including those in subfolders, takes uploads, and runs them
 with a --to and --target of your choice into a temp folder, then shows each output beside the
-original, zoomed together, in a wipe or with a diff overlay. A lossy output's quality slider
+original, zoomed together, in a wipe or with a diff overlay. A raster output's quality slider
 re-encodes it live. Nothing in the folder changes until an output's Write saves it beside its
 original, which, like the command line, replaces a file only when asked. It copies the wio
 command that writes the whole run. It listens on 127.0.0.1 only, and the address it prints
@@ -184,7 +188,7 @@ function createProgram(io: CliIo, finish: (exitCode: number) => void) {
       "Strips images' metadata and writes the smallest PNG, JPEG, WebP, AVIF or SVG that stays above an SSIMULACRA 2 quality target."
     )
     .usage("[optimise] <inputs...> [options]")
-    .version(runTool().version)
+    .version(toolVersions().version)
     .exitOverride()
     .configureOutput({
       writeOut: (text) => io.stdout.write(text),

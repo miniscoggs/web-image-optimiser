@@ -1,7 +1,8 @@
+import { isSourceRun } from "../runtime/index.js";
 import failedResult from "./failedResult.js";
 import optimiseFile from "./optimiseFile.js";
 import type { PipelineFileResult, PipelineOptions } from "./types.js";
-import createWorkerSlot from "./workerSlot.js";
+import createProcessSlot from "./processSlot.js";
 
 /**
  * One file for an executor to optimise.
@@ -22,12 +23,12 @@ type FileExecutor = {
 };
 
 /**
- * A message to a batch worker.
+ * A message to a batch lane's child process.
  */
 type WorkerRequest = { type: "run"; task: FileTask } | { type: "abort" };
 
 /**
- * A batch worker's reply to a run.
+ * A batch lane's child process's reply to a run.
  */
 type WorkerReply =
   { type: "done"; result: PipelineFileResult } | { type: "aborted" };
@@ -65,14 +66,15 @@ function createInProcessExecutor(): FileExecutor {
 }
 
 /**
- * Creates an executor that runs files on a worker thread of its own, so scoring, which blocks
- * its thread, runs in parallel with other lanes. A worker that crashes, or can't start, fails
- * its file with `E_INTERNAL` and is replaced on the next run.
+ * Creates an executor that runs files in a child process of its own, so scoring, which blocks
+ * its thread, runs in parallel with other lanes, and each lane has its own libuv pool for
+ * sharp's work. A child that crashes, even natively, or can't start, fails its file with
+ * `E_INTERNAL` and is replaced on the next run.
  *
- * @param workerUrl - The worker module.
+ * @param moduleUrl - The child module.
  */
-function createWorkerExecutor(workerUrl: URL): FileExecutor {
-  const slot = createWorkerSlot(workerUrl);
+function createProcessExecutor(moduleUrl: URL): FileExecutor {
+  const slot = createProcessSlot(moduleUrl);
 
   return {
     run: async (task, signal) => {
@@ -87,7 +89,7 @@ function createWorkerExecutor(workerUrl: URL): FileExecutor {
         return failedResult(
           task.path,
           "E_INTERNAL",
-          `The worker stopped: ${outcome.detail}`
+          `The lane's process stopped: ${outcome.detail}`
         );
       }
       if (outcome.reply.type === "aborted") {
@@ -100,15 +102,13 @@ function createWorkerExecutor(workerUrl: URL): FileExecutor {
 }
 
 /**
- * Creates an executor for a batch lane: a worker thread when running the built package, or the
- * calling thread when running the TypeScript sources, whose `.js` imports a worker can't load.
+ * Creates an executor for a batch lane: a child process when running the built package, or the
+ * calling thread when running the TypeScript sources, whose `.js` imports a child can't load.
  */
 function createExecutor() {
-  const fromSource = new URL(import.meta.url).pathname.endsWith(".ts");
-
-  return fromSource
+  return isSourceRun(import.meta.url)
     ? createInProcessExecutor()
-    : createWorkerExecutor(new URL("./worker.js", import.meta.url));
+    : createProcessExecutor(new URL("./worker.js", import.meta.url));
 }
 
 export { createExecutor, runFile };

@@ -44,9 +44,16 @@ When the inputs hold no images at all, `wio` exits 2 with `E_NO_INPUTS`.
 
 ### Where outputs go
 
-Without `--out-dir`, each output goes beside its input, named after it with the output format's extension. With `--out-dir`, files found in a folder's subfolders, or below a glob pattern's fixed start, go into the same subfolders of the output folder; files named directly go straight into it. So `wio photos --recursive --out-dir web` writes `photos/blog/hero.jpg` to `web/blog/hero.webp`.
+Without `--out-dir`, each output goes beside its input, named after it with the output format's extension. With `--out-dir`, files found in a folder's subfolders, or below a glob pattern's fixed start, go into the same subfolders of the output folder; files named directly go straight into it. So `wio photos --recursive --out-dir web` writes `photos/blog/hero.jpg` to `web/blog/hero.webp`, and `wio "src/{icons/raw,img}/*.png" --out-dir web` writes `src/icons/raw/logo.png` to `web/icons/raw/logo.webp`, since the fixed start is the folders before the first glob character. A file a pattern reaches above its fixed start, through `..`, goes straight into the output folder.
 
-An output that would replace its own input fails the file with `E_OUTPUT_IS_INPUT`, unless `--in-place` is given. That happens in `same` mode, and to SVGs, which always stay SVG, whenever `--out-dir` is left out. An output that already exists makes the file `skipped` with `W_OUTPUT_EXISTS`, unless `--overwrite` is given. The messages of both name the flag that fixes them.
+An output that would replace its own input fails the file with `E_OUTPUT_IS_INPUT`, unless `--in-place` is given. Without `--out-dir`, that happens to:
+
+- every file in `same` mode, and every SVG, which always stays SVG;
+- a file already in the format asked for: a WebP in `webp` mode, so plain `wio photo.webp` fails, an AVIF in `avif` mode, and a WebP or AVIF in `suite`;
+- in `suite`, a JPEG or PNG whose fallback isn't the input unchanged, which is most camera JPEGs, since stripping their metadata changes them;
+- a file that nothing in the asked format beats, whose metadata strip is written in its own format instead (`W_NOT_CONVERTED`).
+
+So give `suite` an `--out-dir`, and any folder that may hold images already in the format asked for. An output that already exists makes the file `skipped` with `W_OUTPUT_EXISTS`, unless `--overwrite` is given. The messages of both name the flag that fixes them.
 
 ### Output
 
@@ -112,16 +119,16 @@ Serves a folder, the current one by default, to the comparison UI, and opens it 
 
 In the page:
 
-- **Images** lists the folder's images, every one picked at first. Drop images on the list, or choose them, to upload more. Refresh picks up files added to the folder since.
+- **Images** lists the folder's images, every one picked at first. Drop images on the list, or choose them, to upload more. An uploaded name that Windows can't store is changed on every platform: `<>:"|?*` and control characters become `_`, and a device name such as `nul.png` becomes `nul_.png`. Refresh picks up files added to the folder since.
 - **Output** and **Quality target** are `--to` and `--target`, with the same defaults.
 - **Run** optimises the picked images, showing each file's progress and then its outputs, as the command line's table does. An image whose outputs would land on another's, or on another picked image, fails with `E_OUTPUT_CONFLICT` as it would on the command line, such as `photo.jpg` beside `photo.png` in `webp` mode, or `photo.png` beside a `photo.webp` written earlier. Stop ends the run once each file in progress finishes its current step, and a new run stops the one in progress and starts once it has.
 - **Compare**, beside a finished file with outputs, opens it in the viewer: the original beside each output, which is WebP, AVIF and the fallback after a `suite` run, or the one output otherwise. Each pane shows the output's format, how it was made, its size, saving, score and verdict.
   - **Fit**, **100%**, **200%** and **400%** set the zoom, and the scroll wheel zooms around the pointer. 100% draws one image pixel per screen pixel, whatever the display's scaling, and above 100% pixels are drawn as squares rather than smoothed. Drag an image, or use the arrow keys, to pan. Every pane follows, so they always show the same part of the image.
   - **Diff** lays the diff map that `wio compare --diff` draws over an output, with a slider for its opacity. SVG has no diff map.
   - **Wipe**, or a click on an output, shows it over the original, which is on the left of a divider to drag or move with the arrow keys. Escape goes back to the grid, then closes the viewer.
-  - The **quality slider** on a WebP, AVIF or JPEG output re-encodes the original at the quality chosen, over the range the optimiser searches, and scores it. The pane then shows that image, its size, saving, score and verdict, and its diff map when Diff is on. Each quality is encoded once per session, so going back to one is quick, but a new one takes about a second per megapixel to score, several for AVIF. **Reset** goes back to the run's output.
+  - The **quality slider** on a WebP, AVIF, JPEG or PNG output re-encodes the original at the quality chosen (a PNG as a palette), over the range the optimiser searches, and scores it. The pane then shows that image, its size, saving, score and verdict, and its diff map when Diff is on. Each quality is encoded once per session, so going back to one is quick, but a new one takes about a second per megapixel to score, several for AVIF. **Reset** goes back to the run's output.
   - **Write** saves the image a pane shows beside its original, named as `wio` names it, or an uploaded image's in the folder served. It follows the command line's rules: it refuses an image larger than the original, and when the name is the original's or another existing file's it asks first, with **Replace original** as `--in-place` and **Replace it** as `--overwrite`. Once the original has been replaced, the viewer's comparison is out of date, so its sliders and Write buttons go until the file is run again.
-- **Copy CLI command** copies the `wio` command that writes the same outputs, to run in the folder served, quoted for a POSIX shell, or for PowerShell when the folder is on Windows. It names an uploaded image by its file name alone.
+- **Copy CLI command** copies the `wio` command that writes the same outputs, to run in the folder served, quoted for a POSIX shell, or for PowerShell when the folder is on Windows. It names an uploaded image by its file name alone. The command writes beside the originals, where the run's temp folders held nothing, so it can meet what the run didn't: once a run is done, a note under the command names each file it would fail with `E_OUTPUT_IS_INPUT` (add `--in-place`) or skip with `W_OUTPUT_EXISTS` (add `--overwrite`). The command itself never adds either flag.
 - **Export report** saves the run's `RunResult` as `wio-report.json`, with the UI's file references, such as `root/photo.jpg`, in place of paths.
 - **Copy markup**, after a `suite` run, copies what `--markup` would print for the command above: `<picture>` elements whose URLs are relative to the folder served.
 

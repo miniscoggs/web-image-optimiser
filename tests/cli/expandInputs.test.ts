@@ -173,6 +173,32 @@ describe("expandInputs", () => {
     ]);
   });
 
+  it("mirrors below the fixed start of a pattern whose brace group holds a /", async () => {
+    await touch("src/icons/raw/a.png", "src/img/b.png");
+
+    const outDir = path.join(folder, "web");
+    const inputs = await expand([globAt("src/{icons/raw,img}/*.png")], {
+      outDir,
+    });
+
+    expect(inputs).toEqual([
+      {
+        path: at("src", "icons", "raw", "a.png"),
+        outDir: path.join(outDir, "icons", "raw"),
+      },
+      { path: at("src", "img", "b.png"), outDir: path.join(outDir, "img") },
+    ]);
+  });
+
+  it("puts a match above the pattern's fixed start straight into the output folder", async () => {
+    await touch("a.png", "img/b.png");
+
+    const outDir = path.join(folder, "web");
+    const inputs = await expand([globAt("img/*/../../*.png")], { outDir });
+
+    expect(inputs).toEqual([{ path: at("a.png"), outDir }]);
+  });
+
   it.runIf(IGNORES_CASE)(
     "matches a glob pattern ignoring case where the file system does",
     async () => {

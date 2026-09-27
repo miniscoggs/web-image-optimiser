@@ -12,6 +12,12 @@ const XML_PROLOG_ITEM =
 const SVG_ROOT = /<svg[\s/>]/y;
 
 /**
+ * How many leading bytes {@link detectFormat} needs: any format's signature, and an SVG's prolog
+ * up to its root.
+ */
+const SNIFF_BYTES = 16 * 1024;
+
+/**
  * Returns the brands of an ISOBMFF file's leading `ftyp` box, major brand first, or none when
  * the file doesn't start with one.
  *
@@ -89,4 +95,4 @@ function isAvifSequence(bytes: Buffer) {
   return readFtypBrands(bytes).includes(AVIF_SEQUENCE_BRAND);
 }
 
-export { detectFormat, isAvifSequence };
+export { SNIFF_BYTES, detectFormat, isAvifSequence };

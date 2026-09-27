@@ -10,10 +10,11 @@ import {
   verdictFor,
 } from "../metrics/index.js";
 import { planWrites } from "../pipeline/destination.js";
+import DOWNSCALED_WARNING from "../pipeline/downscaledWarning.js";
 import type { InputFile } from "../pipeline/destination.js";
 import type { PipelineWarning } from "../pipeline/index.js";
 import readInput from "../pipeline/readInput.js";
-import runTool from "../pipeline/runTool.js";
+import toolVersions from "../pipeline/toolVersions.js";
 import writeOutputs from "../pipeline/writeOutputs.js";
 import { OptimiserError, SCHEMA_VERSION } from "../schema/index.js";
 import type { CompareImage, CompareOptions, CompareResult } from "./types.js";
@@ -161,11 +162,7 @@ async function compareImages(
   const value = await score(reference, distorted);
 
   if (isDownscaledForScoring(reference)) {
-    warnings.push({
-      code: "W_SCORED_DOWNSCALED",
-      message:
-        "The images are over 26 megapixels, so they were scored at 26 MP and the score is approximate",
-    });
+    warnings.push(DOWNSCALED_WARNING);
   }
   if (blocked !== undefined) {
     warnings.push(blocked);
@@ -231,7 +228,7 @@ async function compareFiles(
 
   const result: CompareResult = {
     schemaVersion: SCHEMA_VERSION,
-    tool: runTool(),
+    tool: toolVersions(),
     original: { path: original },
     candidate: { path: candidate },
     warnings: [],

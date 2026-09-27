@@ -5,6 +5,7 @@ import type {
 } from "../../src/pipeline/types.js";
 import type {
   PixelFormat,
+  ServerCliEvent,
   ServerDiffResponse,
   ServerEncodeResponse,
   ServerFilesResponse,
@@ -19,6 +20,12 @@ import readEvents from "./readEvents.js";
  * The options a run in the UI takes, which are the CLI's `--to` and `--target`.
  */
 type RunOptions = { to: PipelineMode; target: PipelineTargetPreset | number };
+
+/**
+ * An event of a run in the UI: one of the contract's, or a `cli` event naming a finished file
+ * that the copied command would fail or skip.
+ */
+type RunEvent = PipelineEvent | ({ type: "cli" } & ServerCliEvent);
 
 /**
  * What a write may replace, as the CLI's flags: the original with `inPlace`, and another
@@ -105,7 +112,8 @@ async function uploadFiles(files: File[]) {
 }
 
 /**
- * Runs files into the server's temp folder, yielding the run's events as they arrive.
+ * Runs files into the server's temp folder, yielding the run's events as they arrive, with a
+ * `cli` event after each file the copied command would fail or skip.
  *
  * @param refs - The files.
  * @param options - The mode and target.
@@ -115,7 +123,7 @@ async function* runFiles(
   refs: string[],
   options: RunOptions,
   signal: AbortSignal
-): AsyncGenerator<PipelineEvent> {
+): AsyncGenerator<RunEvent> {
   const response = await fetch("/api/optimise", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -132,7 +140,9 @@ async function* runFiles(
     if (message.event === "error") {
       throw new Error((data as { error: string }).error);
     }
-    yield data as PipelineEvent;
+    yield message.event === "cli"
+      ? { type: "cli", ...(data as ServerCliEvent) }
+      : (data as PipelineEvent);
   }
 }
 
@@ -196,4 +206,4 @@ export {
   uploadFiles,
   writeImage,
 };
-export type { RunOptions, WriteReplacing };
+export type { RunEvent, RunOptions, WriteReplacing };

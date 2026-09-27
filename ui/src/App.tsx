@@ -9,7 +9,7 @@ import CopyButton from "./components/CopyButton.js";
 import FileList from "./components/FileList.js";
 import OptionsPanel from "./components/OptionsPanel.js";
 import ResultsTable from "./components/ResultsTable.js";
-import { cliCommand, markupText } from "./copyText.js";
+import { cliBlockNote, cliCommand, markupText } from "./copyText.js";
 import downloadJson from "./downloadJson.js";
 import { toRunResult } from "./runState.js";
 import type { RunState } from "./runState.js";
@@ -53,6 +53,7 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [listings, setListings] = useState(0);
   const [comparing, setComparing] = useState<ComparisonFile>();
+  const [ranCommand, setRanCommand] = useState<string>();
   const { run, start, stop } = useRun();
 
   useEffect(() => {
@@ -102,6 +103,10 @@ function App() {
     root === undefined || picked.length === 0
       ? undefined
       : cliCommand(picked, options, root);
+  const note =
+    run.status === "done" && command === ranCommand
+      ? cliBlockNote(run.files)
+      : undefined; // only while the command shown is the one run
   const report = toRunResult(run);
   const finished = run.files.flatMap((file) => file.result ?? []);
 
@@ -145,7 +150,10 @@ function App() {
                 type="button"
                 className="primary"
                 disabled={picked.length === 0}
-                onClick={() => void start(picked, options)}
+                onClick={() => {
+                  setRanCommand(command);
+                  void start(picked, options);
+                }}
               >
                 Run {picked.length} {picked.length === 1 ? "image" : "images"}
               </button>
@@ -157,6 +165,16 @@ function App() {
             </code>
             <CopyButton label="Copy CLI command" text={command} />
           </div>
+          {note !== undefined && (
+            <div className="cli-note" role="note">
+              <p>{note.summary}</p>
+              <ul>
+                {note.lines.map((line) => (
+                  <li key={line.ref}>{line.text}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
         <section className="card run-results" aria-label="Results">
           <div className="run-status">

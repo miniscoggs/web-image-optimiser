@@ -49,8 +49,8 @@ Each output has:
 | `role` | `same` (the input's own format), `webp`, `avif`, or `fallback` (a suite's JPEG or PNG) |
 | `path` | Where it was written |
 | `format` | `png`, `jpeg`, `webp`, `avif` or `svg` |
-| `method` | `strip` (the input with its metadata removed and its image data untouched), `svgo`, `lossy`, `lossless` or `near-lossless` |
-| `quality` | The encoder quality, or near-lossless level, when the method takes one |
+| `method` | `strip` (the input with its metadata removed and its image data untouched), `svgo`, `lossy`, `lossless` or `near-lossless`. A `lossy` PNG is a palette PNG, of at most 256 colours |
+| `quality` | The encoder quality (for a palette PNG, libimagequant's), or near-lossless level, when the method takes one |
 | `bytes` | Its size |
 | `gzipBytes` | SVG only: its size gzipped, as a server usually sends it |
 | `saving` | The fraction of the input's size saved: 0 for a suite's unchanged fallback |

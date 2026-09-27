@@ -52,7 +52,7 @@ describe("outputTitle", () => {
 });
 
 describe("qualitySliderOf", () => {
-  it("starts a lossy output at its quality, another at the top of the range, and a lossless format at none", () => {
+  it("starts a lossy output at its quality, another at the top of the range, and an SVG at none", () => {
     const [avif, webp, png] = suiteResult().outputs;
     const [jpegStrip] = sameResult().outputs;
 
@@ -67,7 +67,14 @@ describe("qualitySliderOf", () => {
       range: [40, 95],
       start: 95,
     });
-    expect(png && qualitySliderOf(png)).toBeUndefined();
+    expect(png && qualitySliderOf(png)).toEqual({
+      format: "png",
+      range: [1, 100],
+      start: 100, // lossless, so re-encoding it as a palette starts at the top
+    });
+    expect(
+      png && qualitySliderOf({ ...png, format: "svg", method: "svgo" })
+    ).toBeUndefined();
   });
 });
 

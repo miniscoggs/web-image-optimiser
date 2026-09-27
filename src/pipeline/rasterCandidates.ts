@@ -3,6 +3,7 @@ import {
   avifLossy,
   jpegMozjpeg,
   pngLossless,
+  pngPalette,
   webpLossless,
   webpLossy,
   webpNearLossless,
@@ -158,8 +159,9 @@ async function losslessCandidate(
 /**
  * Returns the re-encodes worth trying in a format, each as a function that makes the candidate.
  *
- * Images too small to score get only lossless encoders. A PNG source also tries lossless and
- * near-lossless WebP, and a lossless WebP stays lossless.
+ * Images too small to score get only lossless encoders. PNG adds a palette search to lossless,
+ * which a photo fails at its top quality, ending its search there. A PNG source also tries
+ * lossless and near-lossless WebP, and a lossless WebP stays lossless.
  *
  * @param format - The output format.
  * @param source - The source.
@@ -177,7 +179,12 @@ function reencodersFor(format: EncodeFormat, source: RasterSource) {
     losslessCandidate(encode, source);
 
   if (format === "png") {
-    return [exact(() => pngLossless(image))];
+    return [
+      exact(() => pngLossless(image)),
+      ...(scorable
+        ? [search((quality) => pngPalette(image, quality), QUALITY_RANGES.png)]
+        : []),
+    ];
   }
   if (format === "jpeg") {
     return scorable

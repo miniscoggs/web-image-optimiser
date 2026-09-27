@@ -9,6 +9,7 @@ import writeOutputs from "../pipeline/writeOutputs.js";
 import ApiError from "./ApiError.js";
 import { writeRequestSchema } from "./api.js";
 import type { ServerWriteResponse } from "./api.js";
+import { cliOutDir } from "./cliPlacement.js";
 import type { ServerContext } from "./context.js";
 import type { ServerRoutes } from "./http.js";
 import parseRequest from "./parseRequest.js";
@@ -69,9 +70,7 @@ function createWriteRoute(context: ServerContext): ServerRoutes {
       );
     }
 
-    const outDir = request.original.startsWith("root/")
-      ? undefined
-      : context.folders.root; // an upload's output goes in the folder served
+    const outDir = cliOutDir(request.original, context.folders.root);
     const target = outputPath(originalPath, format, outDir);
     const plan = await planWrites([{ path: target, bytes }], input, {
       inPlace: request.inPlace ?? false,

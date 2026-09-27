@@ -18,7 +18,7 @@ import type { Viewport, ViewportPoint, ViewportSize } from "../viewport.js";
 
 /**
  * An image a viewport draws over the ones before it: faded to an opacity, or cut off a fraction
- * of the pane's width from its right edge.
+ * of the pane's width from its right edge. Its `alt` names it, so each layer's must differ.
  */
 type ImageViewportLayer = {
   src: string;
@@ -178,7 +178,7 @@ function ImageViewport({
     >
       {layers.map((layer) => (
         <div
-          key={layer.src}
+          key={layer.alt} // not src, so a new src swaps in place and the old image shows until it decodes
           className="viewport-layer"
           style={{
             opacity: layer.opacity,

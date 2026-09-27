@@ -13,9 +13,9 @@ import { warningSchema } from "../schema/contract.js";
 const count = z.int().nonnegative();
 
 /**
- * The formats the UI's quality sliders re-encode in: the lossy ones.
+ * The formats the UI's quality sliders re-encode in: the lossy ones, with PNG as a palette.
  */
-const PIXEL_FORMATS = ["webp", "avif", "jpeg"] as const;
+const PIXEL_FORMATS = ["webp", "avif", "jpeg", "png"] as const;
 
 const PRESETS = Object.keys(PIPELINE_TARGET_PRESETS) as [
   PipelineTargetPreset,
@@ -54,14 +54,26 @@ const uploadResponseSchema = z.object({
 
 /**
  * `POST /api/optimise`: the files to run, and the run's mode and target. The response is a
- * server-sent event stream of `PipelineEvent`s, then an `error` event if the run broke. In
- * `suite` mode each file carries the `markup` that `wio --to suite --markup` would print, run
- * in the folder served.
+ * server-sent event stream of `PipelineEvent`s, with a `cli` event after each file the copied
+ * command would fail or skip, then an `error` event if the run broke. In `suite` mode each file
+ * carries the `markup` that `wio --to suite --markup` would print, run in the folder served.
  */
 const optimiseRequestSchema = z.object({
   files: z.array(refSchema).min(1),
   to: z.enum(PIPELINE_MODES).optional(),
   target: z.union([z.enum(PRESETS), z.number().min(0).max(100)]).optional(),
+});
+
+/**
+ * `POST /api/optimise`'s `cli` event: a file the run finished that the copied `wio` command,
+ * run in the folder served, would fail with `E_OUTPUT_IS_INPUT` (`input`, which needs
+ * `--in-place`) or skip with `W_OUTPUT_EXISTS` (`exists`, which needs `--overwrite`), and the
+ * first output that would.
+ */
+const cliEventSchema = z.object({
+  index: count.describe("The file's position in the run, from 0"),
+  reason: z.enum(["input", "exists"]),
+  ref: refSchema.describe("Where the output would land"),
 });
 
 /**
@@ -158,6 +170,11 @@ type ServerFilesResponse = z.infer<typeof filesResponseSchema>;
 type ServerUploadResponse = z.infer<typeof uploadResponseSchema>;
 
 /**
+ * `POST /api/optimise`'s `cli` event.
+ */
+type ServerCliEvent = z.infer<typeof cliEventSchema>;
+
+/**
  * `POST /api/encode`'s response.
  */
 type ServerEncodeResponse = z.infer<typeof encodeResponseSchema>;
@@ -175,6 +192,7 @@ type ServerWriteResponse = z.infer<typeof writeResponseSchema>;
 export {
   PIXEL_FORMATS,
   apiErrorSchema,
+  cliEventSchema,
   diffRequestSchema,
   diffResponseSchema,
   encodeRequestSchema,
@@ -187,6 +205,7 @@ export {
 };
 export type {
   PixelFormat,
+  ServerCliEvent,
   ServerDiffResponse,
   ServerEncodeResponse,
   ServerFilesResponse,

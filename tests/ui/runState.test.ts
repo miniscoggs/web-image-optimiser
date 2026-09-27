@@ -115,6 +115,30 @@ describe("runReducer", () => {
     expect(finished.files[0]).toBe(started.files[0]);
   });
 
+  it("keeps what would fail or skip a file when the copied command runs", () => {
+    const flagged = reduce([
+      BEGIN,
+      {
+        type: "event",
+        event: {
+          type: "cli",
+          index: 1,
+          reason: "input",
+          ref: "root/b.webp",
+        },
+      },
+    ]);
+
+    expect(flagged.files).toEqual([
+      { ref: "root/a.png", running: false },
+      {
+        ref: "root/b.webp",
+        running: false,
+        cliBlock: { reason: "input", ref: "root/b.webp" },
+      },
+    ]);
+  });
+
   it("ends a run with its totals, and leaves a finished run alone when the stream ends", () => {
     const done = reduce([
       BEGIN,

@@ -157,12 +157,10 @@ function claimedFormats(
   format: InspectFormat,
   mode: PipelineMode
 ): InspectFormat[] {
-  if (format === "svg" || mode === "same") {
-    return [format];
-  }
-  return mode === "suite"
-    ? ["avif", "webp", "jpeg", "png", format]
-    : [mode, format];
+  const fallbacks: InspectFormat[] =
+    mode === "suite" && format !== "svg" ? ["jpeg", "png"] : [];
+
+  return [...primaryFormats(format, mode), ...fallbacks, format]; // may repeat a format
 }
 
 /**

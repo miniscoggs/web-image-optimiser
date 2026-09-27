@@ -33,11 +33,14 @@ function useQualityEncodes(original: string) {
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const wanted = useRef(new Map<string, number>()); // each pane's latest quality, for requests already under way
   const busy = useRef(new Set<string>());
+  const mounted = useRef(false);
 
   useEffect(() => {
     const pending = timers.current;
 
+    mounted.current = true;
     return () => {
+      mounted.current = false; // so a request that returns after the viewer closes asks for no more
       for (const timer of pending.values()) {
         clearTimeout(timer);
       }
@@ -83,7 +86,7 @@ function useQualityEncodes(original: string) {
       )
       .finally(() => {
         busy.current.delete(pane);
-        if (wanted.current.get(pane) !== quality) {
+        if (mounted.current && wanted.current.get(pane) !== quality) {
           request(pane, format); // the slider moved on meanwhile
         }
       });

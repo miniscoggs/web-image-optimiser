@@ -3,6 +3,8 @@ import type { MetricsImage } from "./types.js";
 const BLACK = 0;
 const WHITE = 255;
 
+const opaqueByPixels = new WeakMap<Buffer, boolean>(); // decoded pixels are never changed, and each encode and score asks again
+
 /**
  * Returns whether every pixel of an image is fully opaque.
  *
@@ -10,13 +12,16 @@ const WHITE = 255;
  */
 function isOpaque(image: MetricsImage) {
   const { data } = image;
+  let opaque = opaqueByPixels.get(data);
 
-  for (let alpha = 3; alpha < data.length; alpha += 4) {
-    if (data[alpha] !== 255) {
-      return false;
+  if (opaque === undefined) {
+    opaque = true;
+    for (let alpha = 3; alpha < data.length && opaque; alpha += 4) {
+      opaque = data[alpha] === 255;
     }
+    opaqueByPixels.set(data, opaque);
   }
-  return true;
+  return opaque;
 }
 
 /**

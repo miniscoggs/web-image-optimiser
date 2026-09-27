@@ -1,5 +1,5 @@
 // Compares encoder settings by the bytes each needs to reach a target score. Run `npm run build`
-// first. Usage: node scripts/bench-encoders.mjs [--target 80]
+// first. Usage: node scripts/bench-encoders.mjs [--target 80] [--only <config name prefix>]
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -18,6 +18,29 @@ const IMAGES = [
   "logo-alpha.png",
   "semi-transparent.png",
 ];
+const PALETTE_IMAGES = [
+  "screenshot.png",
+  "text-chunks.png",
+  "gradient.png",
+  "logo-alpha.png",
+  "semi-transparent.png",
+]; // a photo's palette encode fails at the top quality, so only graphics tell settings apart
+
+/**
+ * Returns a palette PNG configuration.
+ *
+ * @param effort - imagequant's effort, 1 to 10.
+ * @param dither - How much to dither, 0 to 1.
+ */
+function palette(effort, dither) {
+  return {
+    format: "png",
+    range: QUALITY_RANGES.png,
+    options: { palette: true, effort, dither, compressionLevel: 9 },
+    images: PALETTE_IMAGES,
+  };
+}
+
 const CONFIGS = {
   "avif auto e4": {
     format: "avif",
@@ -59,11 +82,17 @@ const CONFIGS = {
       smartDeblock: true,
     },
   },
+  "png palette e7 dither 0": palette(7, 0),
+  "png palette e7 dither 1": palette(7, 1),
+  "png palette e10 dither 0": palette(10, 0),
+  "png palette e10 dither 1": palette(10, 1),
 };
 const FIXTURE_DIR = new URL("../fixtures/", import.meta.url);
 
 const targetIndex = process.argv.indexOf("--target");
 const target = targetIndex === -1 ? 80 : Number(process.argv[targetIndex + 1]);
+const onlyIndex = process.argv.indexOf("--only");
+const only = onlyIndex === -1 ? "" : process.argv[onlyIndex + 1];
 const configName = process.env.BENCH_CONFIG;
 
 /**
@@ -92,7 +121,7 @@ async function runConfig(name) {
   const config = CONFIGS[name];
   const results = [];
   sharp.concurrency(1); // as optimiseFile sets it, since avif output depends on the thread count
-  for (const file of IMAGES) {
+  for (const file of config.images ?? IMAGES) {
     const source = await decodeForScoring(
       fileURLToPath(new URL(file, FIXTURE_DIR))
     );
@@ -127,20 +156,28 @@ async function runConfig(name) {
 async function main() {
   const script = fileURLToPath(import.meta.url);
   const runs = await Promise.all(
-    Object.keys(CONFIGS).map(
-      (name) =>
-        new Promise((resolve, reject) => {
-          const child = fork(script, process.argv.slice(2), {
-            env: { ...process.env, BENCH_CONFIG: name },
-          });
-          child.on("message", resolve);
-          child.on("error", reject);
-        })
-    )
+    Object.keys(CONFIGS)
+      .filter((name) => name.startsWith(only))
+      .map(
+        (name) =>
+          new Promise((resolve, reject) => {
+            const child = fork(script, process.argv.slice(2), {
+              env: { ...process.env, BENCH_CONFIG: name },
+            });
+            child.on("message", resolve);
+            child.on("error", reject);
+          })
+      )
   );
   console.log(`target ${target}`);
-  console.log(["config", ...IMAGES, "total bytes", "encode s"].join("\t"));
+  let header = "";
   for (const { name, results } of runs) {
+    const images = ["config", ...results.map((result) => result.file)];
+
+    if (images.join() !== header) {
+      header = images.join();
+      console.log([...images, "total bytes", "encode s"].join("\t"));
+    }
     const cells = results.map(
       (result) =>
         `${result.bytes} q${result.quality} ${result.score.toFixed(1)}${result.reached ? "" : "!"}`

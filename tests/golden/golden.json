@@ -31,14 +31,26 @@
         "status": "optimised",
         "warnings": [],
         "outputs": [
-          { "role": "same", "format": "png", "method": "strip", "bytes": 47735 }
+          {
+            "role": "same",
+            "format": "png",
+            "method": "lossy",
+            "quality": 63,
+            "bytes": 11572
+          }
         ]
       },
       "logo-alpha.png": {
         "status": "optimised",
         "warnings": [],
         "outputs": [
-          { "role": "same", "format": "png", "method": "strip", "bytes": 4661 }
+          {
+            "role": "same",
+            "format": "png",
+            "method": "lossy",
+            "quality": 1,
+            "bytes": 1151
+          }
         ]
       },
       "semi-transparent.png": {
@@ -67,8 +79,9 @@
           {
             "role": "same",
             "format": "png",
-            "method": "lossless",
-            "bytes": 119267
+            "method": "lossy",
+            "quality": 69,
+            "bytes": 29845
           }
         ]
       },
@@ -781,10 +794,10 @@
           },
           {
             "role": "fallback",
-            "format": "jpeg",
+            "format": "png",
             "method": "lossy",
-            "quality": 90,
-            "bytes": 27845
+            "quality": 63,
+            "bytes": 11572
           }
         ]
       },
@@ -793,24 +806,11 @@
         "warnings": [],
         "outputs": [
           {
-            "role": "avif",
-            "format": "avif",
-            "method": "lossy",
-            "quality": 24,
-            "bytes": 1605
-          },
-          {
-            "role": "webp",
-            "format": "webp",
-            "method": "near-lossless",
-            "quality": 20,
-            "bytes": 2234
-          },
-          {
             "role": "fallback",
             "format": "png",
-            "method": "strip",
-            "bytes": 4661
+            "method": "lossy",
+            "quality": 1,
+            "bytes": 1151
           }
         ]
       },
@@ -907,7 +907,7 @@
       },
       "display-p3.jpg": {
         "status": "optimised",
-        "warnings": ["W_ICC_KEPT"],
+        "warnings": [],
         "outputs": [
           {
             "role": "avif",
@@ -925,9 +925,10 @@
           },
           {
             "role": "fallback",
-            "format": "jpeg",
-            "method": "strip",
-            "bytes": 6497
+            "format": "png",
+            "method": "lossy",
+            "quality": 50,
+            "bytes": 3184
           }
         ]
       },
@@ -956,10 +957,11 @@
             "bytes": 1007
           },
           {
-            "role": "webp",
-            "format": "webp",
-            "method": "lossless",
-            "bytes": 2810
+            "role": "fallback",
+            "format": "png",
+            "method": "lossy",
+            "quality": 1,
+            "bytes": 1209
           }
         ]
       },

@@ -225,7 +225,7 @@ async function optimiseInput(
  * It sets sharp's thread count for the whole process to 1 (`sharp.concurrency(1)`). With more
  * threads, libaom splits an AVIF into tiles, which makes it larger at the same quality and
  * makes its bytes depend on the machine's CPU count. {@link optimiseBatch} runs files in
- * parallel on worker threads instead.
+ * parallel in child processes instead.
  *
  * @param input - The image file's path.
  * @param options - What to write, and where.

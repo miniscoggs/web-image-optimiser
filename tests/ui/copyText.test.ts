@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PipelineFileResult } from "../../src/pipeline/types.js";
-import { cliCommand, markupText } from "../../ui/src/copyText.js";
+import { cliBlockNote, cliCommand, markupText } from "../../ui/src/copyText.js";
 
 const REFS = [
   "root/photo.jpg",
@@ -32,6 +32,45 @@ describe("cliCommand", () => {
         "wio photo.jpg 'blog/hero shot.png' 'it''s.png' 'price $5 %TEMP%.png' ./-hero.png logo.svg 'Lewis\u2019\u2019s.png' --to webp --target 82.5"
       );
     }
+  });
+});
+
+describe("cliBlockNote", () => {
+  it("counts the files the command would fail and skip, and names each in full", () => {
+    const note = cliBlockNote([
+      {
+        ref: "root/blog/a.webp",
+        running: false,
+        cliBlock: { reason: "input", ref: "root/blog/a.webp" },
+      },
+      { ref: "root/b.png", running: false },
+      {
+        ref: "root/c.jpg",
+        running: false,
+        cliBlock: { reason: "input", ref: "root/c.jpg" },
+      },
+      {
+        ref: "session/uploads/1/d.png",
+        running: false,
+        cliBlock: { reason: "exists", ref: "root/d.webp" },
+      },
+    ]);
+
+    expect(note).toEqual({
+      summary:
+        "Run as copied, this command would fail 2 files, whose outputs replace their originals (add --in-place to allow it), and skip 1 file, whose output exists (add --overwrite to replace it):",
+      lines: [
+        { ref: "root/blog/a.webp", text: "blog/a.webp fails" },
+        { ref: "root/c.jpg", text: "c.jpg fails" },
+        {
+          ref: "session/uploads/1/d.png",
+          text: "d.png is skipped, as d.webp exists",
+        },
+      ],
+    });
+    expect(cliBlockNote([{ ref: "root/b.png", running: false }])).toBe(
+      undefined
+    );
   });
 });
 

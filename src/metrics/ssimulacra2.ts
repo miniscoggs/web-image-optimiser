@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { isSourceRun } from "../runtime/index.js";
 
 type Ssimulacra2Module = {
   score(
@@ -9,7 +10,9 @@ type Ssimulacra2Module = {
   ): number;
 };
 
-let loaded: { module: Ssimulacra2Module; path: string } | undefined;
+let loaded:
+  | { module: Ssimulacra2Module; path: string; require: NodeJS.Require }
+  | undefined;
 
 /**
  * Scores two 8-bit sRGB RGB images with the SSIMULACRA 2 WASM module, loading it on first use.
@@ -28,15 +31,15 @@ function scoreSsimulacra2(
   width: number,
   height: number
 ) {
-  const require = createRequire(import.meta.url);
-
   if (!loaded) {
-    const sourceRun = new URL(import.meta.url).pathname.endsWith(".ts"); // tests run src/, which has no dist/wasm copy
+    const require = createRequire(import.meta.url);
     const path = require.resolve(
-      sourceRun ? "../../wasm/pkg/ssimulacra2.js" : "../wasm/ssimulacra2.js"
+      isSourceRun(import.meta.url) // src/ has no dist/wasm copy
+        ? "../../wasm/pkg/ssimulacra2.js"
+        : "../wasm/ssimulacra2.js"
     );
 
-    loaded = { module: require(path) as Ssimulacra2Module, path }; // compiles the wasm, so never at import time
+    loaded = { module: require(path) as Ssimulacra2Module, path, require }; // compiles the wasm, so never at import time
   }
 
   try {
@@ -44,7 +47,7 @@ function scoreSsimulacra2(
   } catch (error) {
     if (error instanceof Error && error.name === "RuntimeError") {
       // a wasm trap; WebAssembly isn't in this project's type libs
-      delete require.cache[loaded.path];
+      delete loaded.require.cache[loaded.path];
       loaded = undefined;
     }
     throw error;

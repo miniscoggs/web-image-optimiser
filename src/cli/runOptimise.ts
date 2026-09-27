@@ -7,6 +7,7 @@ import type {
   PipelineMode,
   PipelineTargetPreset,
 } from "../pipeline/index.js";
+import type { USAGE_ERROR_CODES } from "../schema/index.js";
 import expandInputs from "./expandInputs.js";
 import withHint from "./hints.js";
 import type { CliHints } from "./hints.js";
@@ -93,10 +94,9 @@ async function runOptimise(
         ? "no inputs were given"
         : "no images were found (folders only include their subfolders with --recursive)";
 
-    command.error(`error: E_NO_INPUTS ${reason}`, {
-      exitCode: 2,
-      code: "E_NO_INPUTS",
-    });
+    const code = "E_NO_INPUTS" satisfies (typeof USAGE_ERROR_CODES)[number];
+
+    command.error(`error: ${code} ${reason}`, { exitCode: 2, code });
   }
 
   const present = (file: PipelineFileResult): PipelineFileResult => {

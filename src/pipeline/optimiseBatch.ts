@@ -8,8 +8,8 @@ import type {
 } from "./types.js";
 
 /**
- * Optimises many image files with {@link optimiseFile}'s rules, several at once, each on a worker
- * thread of its own.
+ * Optimises many image files with {@link optimiseFile}'s rules, several at once, each in a child
+ * process of its own, so a native crash fails only that file (`E_INTERNAL`).
  *
  * Before any work, an input fails with `E_OUTPUT_CONFLICT` when one of its outputs could land on
  * another input, or on an earlier input's outputs (such as `photo.png` and `photo.jpg` both

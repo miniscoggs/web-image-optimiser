@@ -11,18 +11,18 @@ import runBatch from "../pipeline/runBatch.js";
 import type { BatchFailure } from "../pipeline/runBatch.js";
 import ApiError from "./ApiError.js";
 import { optimiseRequestSchema } from "./api.js";
+import type { ServerCliEvent } from "./api.js";
+import { cliOutDir, findCliBlock } from "./cliPlacement.js";
 import type { ServerContext } from "./context.js";
 import type { ServerRoutes } from "./http.js";
 import parseRequest from "./parseRequest.js";
 import { refOf, resolveRef } from "./refs.js";
 import type { ServerFolders } from "./refs.js";
 
-const UPLOADS = "session/uploads/";
-
 /**
- * An input to run: its real path, or its ref with why it can't be read.
+ * An input to run: its ref, and its real path, or the ref again with why it can't be read.
  */
-type RunInput = { path: string; missing?: string };
+type RunInput = { ref: string; path: string; missing?: string };
 
 /**
  * Returns a function that replaces each of some paths in a text with its ref, in one pass, so
@@ -58,10 +58,10 @@ async function resolveInput(
   folders: ServerFolders
 ): Promise<RunInput> {
   try {
-    return { path: await resolveRef(ref, folders) };
+    return { ref, path: await resolveRef(ref, folders) };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      return { path: ref, missing: error.message };
+      return { ref, path: ref, missing: error.message };
     }
     throw error;
   }
@@ -73,13 +73,11 @@ async function resolveInput(
  * an upload, where Write puts it.
  *
  * @param inputs - The inputs, in order.
- * @param refs - Their refs.
  * @param root - The folder served.
  * @param mode - The run's mode.
  */
 async function failuresOf(
   inputs: RunInput[],
-  refs: string[],
   root: string,
   mode: PipelineMode
 ) {
@@ -93,7 +91,7 @@ async function failuresOf(
       {
         index,
         path: input.path,
-        outDir: refs[index]?.startsWith(UPLOADS) ? root : undefined,
+        outDir: cliOutDir(input.ref, root),
       },
     ];
   });
@@ -200,10 +198,42 @@ function presentEvent(
 }
 
 /**
+ * Checks a file a run finished against the copied command, which writes where the CLI does and
+ * so can meet files the run's own folder didn't have.
+ *
+ * @param index - The file's position in the run.
+ * @param file - The file's result, with its real paths.
+ * @param inputRef - The input's ref.
+ * @param folders - The server's folders.
+ * @param mode - The run's mode.
+ * @returns A `cli` event when the command would fail or skip the file.
+ */
+async function cliEventOf(
+  index: number,
+  file: PipelineFileResult,
+  inputRef: string,
+  folders: ServerFolders,
+  mode: PipelineMode
+): Promise<ServerCliEvent | undefined> {
+  if (file.status === "failed") {
+    return undefined; // the command fails it too
+  }
+
+  const blocked = await findCliBlock(file, inputRef, folders.root, mode).catch(
+    () => undefined // advisory, so a file changed since its run just isn't flagged
+  );
+
+  return blocked === undefined
+    ? undefined
+    : { index, reason: blocked.reason, ref: refOf(blocked.path, folders) };
+}
+
+/**
  * Creates the route that runs a batch into a new folder of the server's temp folder, streaming
  * its events. Files fail as the copied command would fail them: one that can't be read, and one
- * whose outputs would clash where the CLI writes them. A new run stops the one in progress, and
- * closing the stream stops it too.
+ * whose outputs would clash where the CLI writes them. After each file it sends a `cli` event
+ * when the command would still fail or skip it. A new run stops the one in progress, and closing
+ * the stream stops it too.
  *
  * @param context - The server's state.
  */
@@ -234,12 +264,7 @@ function createRunRoute(context: ServerContext): ServerRoutes {
       finished: finished.promise,
     }; // no await since the loop, so two requests can't both claim it
     const folder = context.nextFolder("runs");
-    const inputRefs = new Map(
-      inputs.map((input, index) => [
-        input.path,
-        request.files[index] ?? input.path,
-      ])
-    );
+    const inputRefs = new Map(inputs.map((input) => [input.path, input.ref]));
     const stream = new TransformStream<Uint8Array, Uint8Array>();
     const writer = stream.writable.getWriter();
     const encoder = new TextEncoder();
@@ -248,6 +273,8 @@ function createRunRoute(context: ServerContext): ServerRoutes {
 
       writer.write(encoder.encode(text)).catch(() => undefined); // the page went away, which stops the run too
     };
+    let sending = Promise.resolve(); // in order, each file's cli event after it
+    let mode: PipelineMode | undefined;
 
     void (async () => {
       try {
@@ -262,20 +289,42 @@ function createRunRoute(context: ServerContext): ServerRoutes {
           {
             signal,
             onEvent: (event) => {
-              send(
-                presentEvent(
-                  event,
-                  inputRefs,
-                  context.folders,
-                  request.to === "suite" // as the cli allows --markup only with suite
-                )
+              if (event.type === "run-start") {
+                mode = event.options.to;
+              }
+
+              const presented = presentEvent(
+                event,
+                inputRefs,
+                context.folders,
+                request.to === "suite" // as the cli allows --markup only with suite
               );
+              const cli =
+                event.type === "file-done" && mode !== undefined
+                  ? cliEventOf(
+                      event.index,
+                      event.file,
+                      inputRefs.get(event.file.input) ?? event.file.input,
+                      context.folders,
+                      mode
+                    )
+                  : undefined;
+
+              sending = sending.then(async () => {
+                send(presented);
+
+                const blocked = await cli;
+
+                if (blocked !== undefined) {
+                  send(blocked, "cli");
+                }
+              });
             },
           },
-          (settings) =>
-            failuresOf(inputs, request.files, context.folders.root, settings.to)
+          (settings) => failuresOf(inputs, context.folders.root, settings.to)
         );
       } catch (error) {
+        await sending;
         if (!signal.aborted) {
           send(
             { error: error instanceof Error ? error.message : String(error) },
@@ -283,6 +332,7 @@ function createRunRoute(context: ServerContext): ServerRoutes {
           );
         }
       } finally {
+        await sending;
         context.run = undefined;
         finished.resolve();
         await writer.close().catch(() => undefined);

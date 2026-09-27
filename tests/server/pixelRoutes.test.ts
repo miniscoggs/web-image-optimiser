@@ -52,6 +52,22 @@ describe("POST /api/encode", () => {
     expect((await image.arrayBuffer()).byteLength).toBe(body.bytes);
   });
 
+  it("re-encodes a PNG as a palette", async () => {
+    const response = await session.post("/api/encode", {
+      file: "root/logo-alpha.png",
+      format: "png",
+      quality: 50,
+    });
+    const body = encodeResponseSchema.parse(await response.json());
+    const image = Buffer.from(
+      await (await session.image(body.ref)).arrayBuffer()
+    );
+
+    expect(body).toMatchObject({ format: "png", quality: 50 });
+    expect(body.ref).toMatch(/^session\/encodes\/\d+\/logo-alpha\.png$/);
+    expect(await sharp(image).metadata()).toMatchObject({ isPalette: true });
+  });
+
   it.each([
     ["an SVG", "root/title-viewbox.svg", "E_UNSUPPORTED_FORMAT"],
     ["an image under 8x8", "root/icon-6x6.png", "E_TOO_SMALL_TO_SCORE"],
@@ -71,7 +87,7 @@ describe("POST /api/encode", () => {
 
   it.each([
     ["a quality of 0", { quality: 0 }],
-    ["a lossless format", { format: "png" }],
+    ["a format with no slider", { format: "svg" }],
     ["a ref out of the root", { file: "root/../secret.png" }],
   ])("refuses %s with 400", async (_name, change) => {
     const response = await session.post("/api/encode", {

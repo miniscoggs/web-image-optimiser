@@ -1,8 +1,9 @@
 import type { EncodeFormat } from "../encode/index.js";
-import type { InspectFormat } from "../inspect/index.js";
+import FORMAT_NAMES from "../inspect/formatNames.js";
 import { isOpaque } from "../metrics/composite.js";
 import { isDownscaledForScoring } from "../metrics/index.js";
 import type { Candidate, ChosenCandidate } from "./candidate.js";
+import DOWNSCALED_WARNING from "./downscaledWarning.js";
 import { rasterCandidates, stripCandidate } from "./rasterCandidates.js";
 import type { RasterSource } from "./rasterCandidates.js";
 import type {
@@ -10,14 +11,6 @@ import type {
   PipelineOutputRole,
   PipelineWarning,
 } from "./types.js";
-
-const FORMAT_NAMES: Record<InspectFormat, string> = {
-  avif: "AVIF",
-  jpeg: "JPEG",
-  png: "PNG",
-  svg: "SVG",
-  webp: "WebP",
-};
 
 /**
  * Picks the smallest candidate that is smaller than a size and reaches the target, or, when
@@ -165,11 +158,7 @@ async function selectRaster(
       message: `Images under 8x8 pixels can't be scored, so only lossless outputs were tried`,
     });
   } else if (isDownscaledForScoring(source.image)) {
-    warnings.push({
-      code: "W_SCORED_DOWNSCALED",
-      message:
-        "The image is over 26 megapixels, so it was scored at 26 MP and its scores are approximate",
-    });
+    warnings.push(DOWNSCALED_WARNING);
   }
 
   const chosen =

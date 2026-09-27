@@ -58,7 +58,7 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
     );
   });
 
-  it("optimises a batch on worker threads", async () => {
+  it("optimises a batch in child processes", async () => {
     const library = await importLibrary();
     const { folder, inputs } = await copyToTemp([
       "gradient-16bit.png",
@@ -93,7 +93,7 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
     }
   });
 
-  it("leaves no temp files when a batch on worker threads is aborted", async () => {
+  it("leaves no temp files when a batch in child processes is aborted", async () => {
     const library = await importLibrary();
     const { folder, inputs } = await copyToTemp([
       "screenshot.png",
@@ -119,7 +119,7 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
     }
   });
 
-  it("serves the UI's re-encodes and diff maps from its pixel worker", async () => {
+  it("serves the UI's re-encodes and diff maps from its pixel process", async () => {
     const library = await importLibrary();
     const { folder } = await copyToTemp(["gradient-16bit.png"]);
     const server = await library.startUiServer({ root: folder });

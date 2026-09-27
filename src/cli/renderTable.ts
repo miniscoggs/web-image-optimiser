@@ -39,8 +39,11 @@ function renderTable(
     style: "bold",
   }));
   const widths = columns.map((_column, index) =>
-    Math.max(...[heading, ...rows].map((row) => textOf(row[index]).length))
-  );
+    [heading, ...rows].reduce(
+      (widest, row) => Math.max(widest, textOf(row[index]).length),
+      0
+    )
+  ); // a loop, since spreading 125,000 or more rows into Math.max overflows the stack
   const line = (cells: TableCell[]) =>
     columns
       .map((column, index) => {

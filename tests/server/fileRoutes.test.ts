@@ -177,6 +177,33 @@ describe("POST /api/upload", () => {
     expect(await readdir(session.outside)).toEqual(["root", "secret.png"]);
   });
 
+  it("changes a name Windows can't store, on every platform, so refs stay portable", async () => {
+    const form = new FormData();
+    const png = await readFile(fixturePath("icon-6x6.png"));
+    const names = ["a:b.png", "nul.png", "Con.old.png", "x<y>|z*?.png"];
+
+    for (const name of names) {
+      form.append("file", new Blob([png]), name);
+    }
+
+    const response = await session.api("/api/upload", {
+      method: "POST",
+      body: form,
+    });
+    const body = uploadResponseSchema.parse(await response.json());
+    const stored = body.files.map((file) => file.ref.split("/").at(-1));
+    const served = await session.image(body.files[0]?.ref ?? "");
+
+    expect(response.status).toBe(200);
+    expect(stored).toEqual([
+      "a_b.png", // a : writes an ntfs alternate data stream
+      "nul_.png",
+      "Con_.old.png",
+      "x_y__z__.png",
+    ]);
+    expect(Buffer.from(await served.arrayBuffer()).equals(png)).toBe(true);
+  });
+
   it("refuses a file that isn't an image with 400, storing nothing", async () => {
     const form = new FormData();
     const before = filesResponseSchema.parse(

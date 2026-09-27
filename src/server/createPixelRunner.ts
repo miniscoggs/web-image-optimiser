@@ -1,4 +1,5 @@
-import createWorkerSlot from "../pipeline/workerSlot.js";
+import createProcessSlot from "../pipeline/processSlot.js";
+import { isSourceRun } from "../runtime/index.js";
 import ApiError from "./ApiError.js";
 import { runPixelJob } from "./pixelJobs.js";
 import type { PixelJob, PixelReply } from "./pixelJobs.js";
@@ -15,7 +16,7 @@ type PixelRunner = {
   diff: (
     job: Omit<Extract<PixelJob, { type: "diff" }>, "type">
   ) => Promise<void>;
-  /** Stops the worker, and fails every job still queued. */
+  /** Stops the child process, and fails every job still queued. */
   close: () => Promise<void>;
 };
 
@@ -37,29 +38,32 @@ function assertSucceeded<Reply extends PixelReply>(
 }
 
 /**
- * Creates a {@link PixelRunner}: on a worker thread when running the built package, since
+ * Creates a {@link PixelRunner}: in a child process when running the built package, since
  * scoring blocks its thread for about a second per megapixel, or on the calling thread when
- * running the TypeScript sources, whose `.js` imports a worker can't load.
+ * running the TypeScript sources, whose `.js` imports a child can't load.
  */
 function createPixelRunner(): PixelRunner {
-  const fromSource = new URL(import.meta.url).pathname.endsWith(".ts");
-  const slot = createWorkerSlot(new URL("./pixelWorker.js", import.meta.url));
+  const fromSource = isSourceRun(import.meta.url);
+  const slot = createProcessSlot(new URL("./pixelWorker.js", import.meta.url));
   let queue: Promise<unknown> = Promise.resolve();
   let closed = false;
 
-  const inWorker = async (job: PixelJob): Promise<PixelReply> => {
+  const inChild = async (job: PixelJob): Promise<PixelReply> => {
     const outcome = await slot.send<PixelReply>(job);
 
     return outcome.type === "reply"
       ? outcome.reply
-      : { type: "failed", message: `The worker stopped: ${outcome.detail}` };
+      : {
+          type: "failed",
+          message: `The pixel process stopped: ${outcome.detail}`,
+        };
   };
   const run = (job: PixelJob) => {
     const reply = queue.then((): Promise<PixelReply> | PixelReply => {
       if (closed) {
-        return { type: "failed", message: "The wio UI server is stopping" }; // rather than start another worker
+        return { type: "failed", message: "The wio UI server is stopping" }; // rather than start another child
       }
-      return fromSource ? runPixelJob(job) : inWorker(job);
+      return fromSource ? runPixelJob(job) : inChild(job);
     });
 
     queue = reply; // replies never reject

@@ -10,6 +10,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { glob } from "tinyglobby";
+import { eventSchema } from "../../src/schema/contract.js";
+import { cliEventSchema } from "../../src/server/api.js";
 import { startUiServer } from "../../src/server/index.js";
 import { fixturePath } from "../fixtureManifest.js";
 
@@ -125,6 +127,25 @@ async function readEvents(response: Response) {
 }
 
 /**
+ * Reads a run's event stream to its end.
+ *
+ * @param response - The response.
+ * @returns The contract's events, and the `cli` events sent beside them.
+ */
+async function readRun(response: Response) {
+  const events = await readEvents(response);
+
+  return {
+    events: events.flatMap((event) =>
+      event.name === "message" ? [eventSchema.parse(event.data)] : []
+    ),
+    cli: events.flatMap((event) =>
+      event.name === "cli" ? [cliEventSchema.parse(event.data)] : []
+    ),
+  };
+}
+
+/**
  * Uploads a file with a unique name and returns the server's temp folder, found by that name,
  * since the API gives out refs rather than paths.
  *
@@ -159,5 +180,5 @@ async function writeText(filePath: string, text: string) {
   await writeFile(filePath, text);
 }
 
-export { findSessionFolder, readEvents, startUiSession, writeText };
+export { findSessionFolder, readEvents, readRun, startUiSession, writeText };
 export type { UiSession };

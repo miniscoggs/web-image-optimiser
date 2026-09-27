@@ -100,5 +100,39 @@ describe("App", () => {
       screen.getByRole("button", { name: "Compare photos/cat.png" })
     ).toBeDefined();
     expect(screen.getByRole("button", { name: "Copy markup" })).toBeDefined();
+    expect(screen.queryByRole("note")).toBeNull(); // nothing blocked
+  });
+
+  it("notes the files the copied command would fail or skip once the run is done", async () => {
+    const [start, fileStart, fileDone, runDone] = suiteRun();
+    const cli = { index: 0, reason: "input", ref: "root/photos/cat.png" };
+    const stream = [
+      ...[start, fileStart, fileDone].map(
+        (event) => `data: ${JSON.stringify(event)}\n\n`
+      ),
+      `event: cli\ndata: ${JSON.stringify(cli)}\n\n`,
+      `data: ${JSON.stringify(runDone)}\n\n`,
+    ].join("");
+
+    stubFetch({
+      "/api/files": () => jsonResponse(FILES),
+      "/api/optimise": () =>
+        new Response(stream, {
+          headers: { "content-type": "text/event-stream" },
+        }),
+    });
+    render(<App />);
+    await screen.findByText("photos/cat.png");
+    fireEvent.click(screen.getByRole("radio", { name: "Suite" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run 2 images" }));
+
+    const note = await screen.findByRole("note");
+
+    expect(note.textContent).toBe(
+      "Run as copied, this command would fail 1 file, whose output replaces its original (add --in-place to allow it):photos/cat.png fails"
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "WebP" }));
+    expect(screen.queryByRole("note")).toBeNull(); // another command now
   });
 });
