@@ -31,7 +31,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true }); require('node:fs').copyFileSync('SKILL.md', 'dist/SKILL.md')\" && node scripts/build-schema.mjs && vite build ui",
     "build:wasm": "node wasm/build.mjs",
-    "dev:ui": "vite ui",
+    "dev": "node scripts/dev.mjs",
     "prepack": "npm run build",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",

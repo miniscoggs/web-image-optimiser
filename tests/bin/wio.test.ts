@@ -153,7 +153,7 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
     const inputs = await copyFixtures("images", [
       ["display-p3.jpg", "photo.jpg"],
       ["gradient-16bit.png", "gradient.png"],
-      ["lossy.webp", "banner.webp"], // already in the default format, so it needs --out-dir
+      ["lossless.webp", "banner.webp"], // already in the default format, so it needs --out-dir
     ]);
     const before = await hashes(inputs);
     const commands = await skillCommands();
@@ -180,7 +180,8 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
       "optimised/gradient.webp",
       "optimised/photo.webp",
       "web",
-      "web/banner.webp",
+      "web/banner.avif",
+      "web/banner.png",
       "web/gradient.avif",
       "web/gradient.png",
       "web/gradient.webp",

@@ -1,8 +1,10 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// npm run dev:ui serves the ui with hot reload, passing the api to a `wio ui --port 5174`
-// started first, whose session cookie the browser also sends to this port
+// npm run dev serves the ui with hot reload, passing the api to a `wio ui --port 5174` it starts
+// alongside, whose session cookie the browser also sends to this port
+
+const API_ORIGIN = "http://127.0.0.1:5174";
 
 export default defineConfig({
   plugins: [react()],
@@ -16,9 +18,10 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
+      "^/\\?token=": API_ORIGIN, // the sign-in address, whose reply sets the cookie here and moves on to /
       "/api": {
-        target: "http://127.0.0.1:5174",
-        headers: { origin: "http://127.0.0.1:5174" }, // the server refuses requests from another origin, this port included
+        target: API_ORIGIN,
+        headers: { origin: API_ORIGIN }, // the server refuses requests from another origin, this port included
       },
     },
   },

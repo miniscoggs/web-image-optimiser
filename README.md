@@ -110,7 +110,7 @@ npm run lint
 npm test
 ```
 
-The browser UI behind `wio ui` is a React app in `ui/`, which `npm run build` builds into `dist/ui` with Vite. To work on it with hot reload, run `node dist/bin/index.js ui <folder> --port 5174` after a build, then `npm run dev:ui`, and open `http://127.0.0.1:5173`: the dev server passes API requests to the `wio ui` server, and the browser shares its session.
+The browser UI behind `wio ui` is a React app in `ui/`, which `npm run build` builds into `dist/ui` with Vite. To work on it with hot reload, run `npm run dev` after a build. It serves the app on `http://127.0.0.1:5173`, passing API requests to a `wio ui` server it starts on port 5174, and opens the page signed in to that server's session. It serves `fixtures/`, or another folder with `npm run dev -- <folder>`. The API runs from `dist`, so run `npm run build` again after changing `src/`.
 
 The SSIMULACRA 2 metric is a Rust crate in `wasm/`, compiled to WebAssembly. Its build output, `wasm/pkg`, is committed, so working on the package needs no Rust. After changing anything in `wasm/`, start Docker and run `npm run build:wasm`. It builds inside a pinned image with checksummed tools, so the output matches CI's rebuild byte for byte, and CI fails when the committed `wasm/pkg` is out of date. `fixtures/ssimulacra2/` holds six image pairs with scores from libjxl's reference `ssimulacra2` tool, and the tests require the WebAssembly build to stay within 0.5 of each. `node wasm/bench.mjs` times one score at 1 MP and 12 MP.
 

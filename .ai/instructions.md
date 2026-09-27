@@ -17,7 +17,7 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 | Command                      | Purpose                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm` and `SKILL.md` into `dist/`, write the JSON Schema files into `dist/schema`, and build the UI in `ui/` into `dist/ui` with Vite |
-| `npm run dev:ui`             | Serve the UI with hot reload on `http://127.0.0.1:5173`, passing API requests to a `node dist/bin/index.js ui <folder> --port 5174` started first |
+| `npm run dev [-- <folder>]`  | After `npm run build`, serve the UI with hot reload on `http://127.0.0.1:5173` and its API from a `wio ui` server on 5174, in one process, serving `fixtures/` or the folder given, and open the page signed in. The API runs from `dist`, so rebuild after changing `src/` |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
 | `npm test`                   | Every test, then `npm run typecheck`. The golden tests make it take a few minutes                          |
