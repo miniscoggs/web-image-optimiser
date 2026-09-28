@@ -3,9 +3,8 @@ import { minVersion, satisfies } from "semver";
 import { assert, describe, expect, it } from "vitest";
 
 type PackageManifest = {
+  private?: boolean;
   bin: Record<string, string>;
-  exports: Record<string, string | Record<string, string>>;
-  files: string[];
   engines: { node: string };
   devDependencies: Record<string, string>;
 };
@@ -53,22 +52,12 @@ const runtimePackages = Object.entries(lockfile.packages).filter(
 );
 
 describe("package manifest", () => {
+  it("is private, since wio is an application that is never published", () => {
+    expect(manifest.private).toBe(true);
+  });
+
   it("points both bins at the same entry", () => {
     expect(manifest.bin["wio"]).toBe(manifest.bin["web-image-optimiser"]);
-  });
-
-  it("lists types first in every code export, and exports only JSON otherwise", () => {
-    for (const entry of Object.values(manifest.exports)) {
-      if (typeof entry === "string") {
-        expect(entry).toMatch(/^\.\/dist\/.*\.json$/);
-      } else {
-        expect(Object.keys(entry)[0]).toBe("types");
-      }
-    }
-  });
-
-  it("publishes dist only", () => {
-    expect(manifest.files).toEqual(["dist"]);
   });
 
   it("requires a Node version every runtime package supports", () => {

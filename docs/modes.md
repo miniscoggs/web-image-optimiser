@@ -1,6 +1,6 @@
 # Modes and outputs
 
-`optimiseFile` decides what to write for one image: which formats, which encoder settings, and whether writing anything beats keeping the file as it is. This page describes those rules. [encoding.md](./encoding.md) covers the encoders and the quality search, and [svg.md](./svg.md) covers SVG.
+`wio` decides what to write for each image: which formats, which encoder settings, and whether writing anything beats keeping the file as it is. This page describes those rules. [encoding.md](./encoding.md) covers the encoders and the quality search, and [svg.md](./svg.md) covers SVG.
 
 ## The four modes
 
@@ -47,25 +47,25 @@ Re-encoding converts a wide-gamut image, such as a Display P3 photo, to sRGB, an
 
 ## Where outputs go
 
-An output goes in `outDir`, or next to its input, named after the input with the output format's extension. An output in the input's own format keeps the input's extension when it fits, such as `.jpeg` or `.PNG`.
+An output goes in `--out-dir`, or next to its input, named after the input with the output format's extension. An output in the input's own format keeps the input's extension when it fits, such as `.jpeg` or `.PNG`.
 
-- **Replacing the input:** an output that would replace its own input fails the file with `E_OUTPUT_IS_INPUT` unless `inPlace` is set. Without `outDir`, that is every file in `same` mode and every SVG; a file already in the format asked for (a WebP in `webp`, an AVIF in `avif`, either in `suite`); in `suite`, a JPEG or PNG whose fallback isn't the input unchanged, which is most camera JPEGs; and a file whose strip fallback is written (`W_NOT_CONVERTED`). So `suite` all but needs an `outDir`. `outDir` avoids it only by pointing somewhere else, so an `outDir` that is the input's own folder still fails, however it is spelt. The one exception is a suite's fallback that is the input unchanged: it is already in place, so it isn't written.
-- **Existing files:** when an output already exists, the file is `skipped` with `W_OUTPUT_EXISTS`, unless `overwrite` is set. The outputs the mode aims for (the AVIF and WebP in `suite`) are checked before any work is done, so re-running a batch skips finished files quickly.
-- **Safe writes:** each output is written to a temp file in its destination folder, and the files are renamed into place only once every one of them is written. Aborting through the `signal`, or a failed write, leaves no temp files. `dryRun` works everything out and writes nothing.
+- **Replacing the input:** an output that would replace its own input fails the file with `E_OUTPUT_IS_INPUT` unless `--in-place` is given. Without `--out-dir`, that is every file in `same` mode and every SVG; a file already in the format asked for (a WebP in `webp`, an AVIF in `avif`, either in `suite`); in `suite`, a JPEG or PNG whose fallback isn't the input unchanged, which is most camera JPEGs; and a file whose strip fallback is written (`W_NOT_CONVERTED`). So `suite` all but needs `--out-dir`. `--out-dir` avoids it only by pointing somewhere else, so an `--out-dir` that is the input's own folder still fails, however it is spelt. The one exception is a suite's fallback that is the input unchanged: it is already in place, so it isn't written.
+- **Existing files:** when an output already exists, the file is `skipped` with `W_OUTPUT_EXISTS`, unless `--overwrite` is given. The outputs the mode aims for (the AVIF and WebP in `suite`) are checked before any work is done, so re-running a batch skips finished files quickly.
+- **Safe writes:** each output is written to a temp file in its destination folder, and the files are renamed into place only once every one of them is written. Stopping a run ([cli.md](./cli.md#stopping)), or a failed write, leaves no temp files. `--dry-run` works everything out and writes nothing.
 
 ## Batches
 
-`optimiseBatch` runs many files with the same rules, several at once, each in a child process of its own, because scoring blocks the thread it runs on, and each process has its own pool of threads for sharp's work. A crash inside sharp's native code then fails only that file, with `E_INTERNAL`. Each encode itself runs on one thread: libaom splits an AVIF into tiles when given more, which makes it larger at the same quality and makes its bytes depend on the machine's CPU count. So one large image takes longer than it would with every core behind it, but the files come out smaller and the same everywhere. By default it runs one file fewer than the CPU count at once, capped at one per 4 GiB of memory, because scoring a very large image can take that much.
+`wio` runs many files with the same rules, several at once, each in a child process of its own, because scoring blocks the thread it runs on, and each process has its own pool of threads for sharp's work. A crash inside sharp's native code then fails only that file, with `E_INTERNAL`. Each encode itself runs on one thread: libaom splits an AVIF into tiles when given more, which makes it larger at the same quality and makes its bytes depend on the machine's CPU count. So one large image takes longer than it would with every core behind it, but the files come out smaller and the same everywhere. By default (`--concurrency`) it runs one file fewer than the CPU count at once, capped at one per 4 GiB of memory, because scoring a very large image can take that much.
 
-- **Conflicts:** before any work, an input fails with `E_OUTPUT_CONFLICT` when one of its possible outputs could land on another input, or on a path an earlier input's outputs could use. For example, `photo.png` and `photo.jpg` would both write `photo.webp`. Formats come from the first bytes of each file, so a PNG named `photo.jpg` counts as writing `photo.png`. The same file given twice also conflicts. Give such inputs their own output folders: each input can carry an `outDir` of its own.
+- **Conflicts:** before any work, an input fails with `E_OUTPUT_CONFLICT` when one of its possible outputs could land on another input, or on a path an earlier input's outputs could use. For example, `photo.png` and `photo.jpg` would both write `photo.webp`. Formats come from the first bytes of each file, so a PNG named `photo.jpg` counts as writing `photo.png`. The same file given twice also conflicts. Run such inputs separately, each with its own `--out-dir`.
 - **Unexpected errors:** a bug hit by one file fails that file with `E_INTERNAL`, and the rest of the batch carries on.
-- **Aborting:** the batch rejects once every file in progress has stopped and removed its temp files. Files that finished before the abort keep their outputs.
+- **Stopping:** a run stops once every file in progress has stopped and removed its temp files. Files that finished before then keep their outputs.
 
 [json-contract.md](./json-contract.md) describes the result and the progress events.
 
 ## Results
 
-`optimiseFile` resolves to a result whose `status` is `optimised`, `kept-original`, `skipped` or `failed`, with the input's size and, once inspected, its displayed width and height. It rejects only when aborted or given an invalid option. A problem with the file itself is a `failed` result whose `error.code` is one of:
+Each file's result has a `status` of `optimised`, `kept-original`, `skipped` or `failed`, with the input's size and, once inspected, its displayed width and height. A problem with the file itself makes it `failed`, with an `error.code` of one of:
 
 | Code | Meaning |
 | --- | --- |
@@ -73,7 +73,7 @@ An output goes in `outDir`, or next to its input, named after the input with the
 | `E_UNSUPPORTED_FORMAT` | It isn't a PNG, JPEG, WebP, AVIF or SVG |
 | `E_ANIMATED` | It's animated |
 | `E_DECODE` | Its header or image data can't be decoded |
-| `E_OUTPUT_IS_INPUT` | An output would replace the input without `inPlace` |
+| `E_OUTPUT_IS_INPUT` | An output would replace the input without `--in-place` |
 | `E_WRITE` | An output can't be written |
 
 Each output reports its role, path, format, method (`strip`, `svgo`, `lossy`, `lossless` or `near-lossless`), quality, size, saving, score, verdict and the metadata it dropped. SVG outputs also report their gzipped size.

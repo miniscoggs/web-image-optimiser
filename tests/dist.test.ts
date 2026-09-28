@@ -1,26 +1,28 @@
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import type { PipelineEvent } from "../src/pipeline/index.js";
 import { eventSchema, runResultSchema } from "../src/schema/contract.js";
 import { diffResponseSchema, encodeResponseSchema } from "../src/server/api.js";
 import { fixturePath } from "./fixtureManifest.js";
 
-type Library = typeof import("../src/index.js");
-type Event = Parameters<
-  NonNullable<Parameters<Library["optimiseBatch"]>[2]>["onEvent"] & {}
->[0];
+type Metrics = typeof import("../src/metrics/index.js");
+type Pipeline = typeof import("../src/pipeline/index.js");
+type Server = typeof import("../src/server/index.js");
 
-const DIST_ENTRY = new URL("../dist/index.js", import.meta.url);
+const DIST_DIR = new URL("../dist/", import.meta.url);
 const PAIR_DIR = new URL("../fixtures/ssimulacra2/", import.meta.url);
 
 /**
- * Imports the built package.
+ * Imports a module from the build.
+ *
+ * @param name - The module's folder under `src/`, eg `pipeline`.
  */
-async function importLibrary() {
-  return (await import(DIST_ENTRY.href)) as Library;
+async function importBuilt<T>(name: string) {
+  return (await import(new URL(`${name}/index.js`, DIST_DIR).href)) as T;
 }
 
 /**
@@ -42,33 +44,33 @@ async function copyToTemp(files: string[]) {
 }
 
 // dist exists only after `npm run build`, which CI runs before the tests
-describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
+describe.skipIf(!existsSync(DIST_DIR))("build", () => {
   it("scores through the wasm copied into dist/wasm", async () => {
-    const library = await importLibrary();
-    const reference = await library.decodeForScoring(
+    const metrics = await importBuilt<Metrics>("metrics");
+    const reference = await metrics.decodeForScoring(
       fileURLToPath(new URL("butterfly.png", PAIR_DIR))
     );
-    const distorted = await library.decodeForScoring(
+    const distorted = await metrics.decodeForScoring(
       fileURLToPath(new URL("butterfly-q60.webp", PAIR_DIR))
     );
 
-    await expect(library.score(reference, distorted)).resolves.toBeCloseTo(
+    await expect(metrics.score(reference, distorted)).resolves.toBeCloseTo(
       68.08, // libjxl's reference score for this pair
       0
     );
   });
 
   it("optimises a batch in child processes", async () => {
-    const library = await importLibrary();
+    const pipeline = await importBuilt<Pipeline>("pipeline");
     const { folder, inputs } = await copyToTemp([
       "gradient-16bit.png",
       "icon-6x6.png",
       "title-viewbox.svg",
     ]);
-    const events: Event[] = [];
+    const events: PipelineEvent[] = [];
 
     try {
-      const result = await library.optimiseBatch(
+      const result = await pipeline.optimiseBatch(
         inputs,
         { outDir: path.join(folder, "out") },
         { concurrency: 2, onEvent: (event) => events.push(event) }
@@ -94,7 +96,7 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
   });
 
   it("leaves no temp files when a batch in child processes is aborted", async () => {
-    const library = await importLibrary();
+    const pipeline = await importBuilt<Pipeline>("pipeline");
     const { folder, inputs } = await copyToTemp([
       "screenshot.png",
       "text-chunks.png",
@@ -103,7 +105,7 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
     const controller = new AbortController();
 
     try {
-      const run = library.optimiseBatch(
+      const run = pipeline.optimiseBatch(
         inputs,
         { to: "suite", outDir },
         { concurrency: 2, signal: controller.signal }
@@ -120,9 +122,9 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
   });
 
   it("serves the UI's re-encodes and diff maps from its pixel process", async () => {
-    const library = await importLibrary();
+    const { startUiServer } = await importBuilt<Server>("server");
     const { folder } = await copyToTemp(["gradient-16bit.png"]);
-    const server = await library.startUiServer({ root: folder });
+    const server = await startUiServer({ root: folder });
 
     try {
       const exchange = await fetch(server.url, { redirect: "manual" });
@@ -158,9 +160,9 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
   });
 
   it("serves the built UI, whose scripts are all files the page policy allows", async () => {
-    const library = await importLibrary();
+    const { startUiServer } = await importBuilt<Server>("server");
     const { folder } = await copyToTemp([]);
-    const server = await library.startUiServer({ root: folder });
+    const server = await startUiServer({ root: folder });
 
     try {
       const exchange = await fetch(server.url, { redirect: "manual" });
@@ -196,21 +198,6 @@ describe.skipIf(!existsSync(DIST_ENTRY))("built package", () => {
     } finally {
       await server.close();
       await rm(folder, { recursive: true, force: true });
-    }
-  });
-
-  it("ships the JSON Schema files", async () => {
-    for (const [file, title] of [
-      ["run-result.schema.json", "RunResult"],
-      ["event.schema.json", "Event"],
-      ["compare-result.schema.json", "CompareResult"],
-    ]) {
-      const text = await readFile(
-        new URL(`../dist/schema/${file}`, import.meta.url),
-        "utf8"
-      );
-
-      expect(JSON.parse(text)).toMatchObject({ title });
     }
   });
 });

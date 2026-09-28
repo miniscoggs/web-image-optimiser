@@ -11,7 +11,7 @@ type CliHints = Partial<
 >;
 
 /**
- * Adds the flag that fixes an error or warning to its message, since the library's messages
+ * Adds the flag that fixes an error or warning to its message, since the engine's messages
  * don't know the CLI's flags.
  *
  * @param item - The error or warning.

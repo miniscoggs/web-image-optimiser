@@ -102,7 +102,7 @@ function createProcessExecutor(moduleUrl: URL): FileExecutor {
 }
 
 /**
- * Creates an executor for a batch lane: a child process when running the built package, or the
+ * Creates an executor for a batch lane: a child process when running the build, or the
  * calling thread when running the TypeScript sources, whose `.js` imports a child can't load.
  */
 function createExecutor() {

@@ -1,6 +1,7 @@
 {
   "name": "web-image-optimiser",
   "version": "0.1.0",
+  "private": true,
   "description": "Perceptual image optimiser for the web: strips metadata and writes the smallest PNG, JPEG, WebP, AVIF or SVG that stays above an SSIMULACRA 2 quality target.",
   "license": "MIT",
   "author": "Lewis Scoging",
@@ -9,30 +10,18 @@
     "url": "git+https://github.com/miniscoggs/web-image-optimiser.git"
   },
   "type": "module",
-  "sideEffects": false,
   "bin": {
     "web-image-optimiser": "./dist/bin/index.js",
     "wio": "./dist/bin/index.js"
   },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./schema/*.json": "./dist/schema/*.json"
-  },
-  "files": [
-    "dist"
-  ],
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true }); require('node:fs').copyFileSync('SKILL.md', 'dist/SKILL.md')\" && node scripts/build-schema.mjs && vite build ui",
+    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\" && vite build ui",
     "build:wasm": "node wasm/build.mjs",
     "dev": "node scripts/dev.mjs",
-    "prepack": "npm run build",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
     "test": "vitest run && npm run typecheck",

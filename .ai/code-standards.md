@@ -19,7 +19,7 @@ These are promises to users. Never weaken them, and cover every change to the wr
 Agents drive `wio` through `--json` and `--ndjson`, so that output is a public API.
 
 - With `--json`, stdout carries exactly one `RunResult` (or `CompareResult` for `wio compare`) and nothing else. With `--ndjson`, stdout carries one event per line. Without either, stdout carries the human-readable result, the table or the comparison. Logs, progress, usage errors and a failed comparison's message always go to stderr, and a usage error prints nothing on stdout.
-- Every result shape must be a zod schema in `src/schema/`, and the shipped JSON Schema files must be generated from those schemas by the build. Never hand-edit the generated files.
+- Every result shape must be a zod schema in `src/schema/`, and `docs/json-contract.md` must describe it.
 - Adding a field is a minor change. Renaming or removing a field, or changing its meaning, bumps `schemaVersion` and is recorded in `docs/json-contract.md`.
 - Error and warning codes must be defined in `src/schema/codes.ts`. Once released, never rename, remove or reuse a code.
 - Exit codes: 0 when no file failed, 1 when at least one file failed (or a comparison failed), 2 for usage errors, and 130 or 143 when stopped by Ctrl+C or SIGTERM. Skipped and kept-original files are not failures, and an unreached quality target is a warning.

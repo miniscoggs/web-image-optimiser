@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { format, resolveConfig } from "prettier";
-import { optimiseBatch } from "../dist/index.js";
+import { optimiseBatch } from "../dist/pipeline/index.js";
 
 const MODES = ["same", "webp", "avif", "suite"];
 const FIXTURE_DIR = new URL("../fixtures/", import.meta.url);

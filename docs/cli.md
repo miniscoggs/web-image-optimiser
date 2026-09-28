@@ -1,6 +1,6 @@
 # Command line
 
-The package installs one command under two names, `wio` and `web-image-optimiser`. It has three commands: optimise, the default, `compare`, and `ui`, which serves a comparison UI to the browser. It never prompts, so scripts and agents can drive it. [json-contract.md](./json-contract.md) describes its JSON output, and [modes.md](./modes.md) how it chooses what to write.
+`wio` is one command under two names, `wio` and `web-image-optimiser`, which `npm link` puts on the PATH from a clone (see the [README](../README.md)). It has three commands: optimise, the default, `compare`, and `ui`, which serves a comparison UI to the browser. It never prompts, so scripts and agents can drive it. [json-contract.md](./json-contract.md) describes its JSON output, and [modes.md](./modes.md) how it chooses what to write.
 
 ## Optimising
 

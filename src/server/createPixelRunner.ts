@@ -38,7 +38,7 @@ function assertSucceeded<Reply extends PixelReply>(
 }
 
 /**
- * Creates a {@link PixelRunner}: in a child process when running the built package, since
+ * Creates a {@link PixelRunner}: in a child process when running the build, since
  * scoring blocks its thread for about a second per megapixel, or on the calling thread when
  * running the TypeScript sources, whose `.js` imports a child can't load.
  */

@@ -1,6 +1,6 @@
 /**
  * Returns whether a module is running from the TypeScript sources, as under the tests, rather
- * than from the built package in `dist/`.
+ * than from the build in `dist/`.
  *
  * @param moduleUrl - The calling module's `import.meta.url`.
  *

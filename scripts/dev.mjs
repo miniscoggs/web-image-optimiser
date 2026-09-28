@@ -7,7 +7,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createServer } from "vite";
-import { startUiServer } from "../dist/index.js";
+import { startUiServer } from "../dist/server/index.js";
 import { forwardingPage } from "../dist/server/http.js";
 
 const API_PORT = 5174; // the port ui/vite.config.ts proxies to

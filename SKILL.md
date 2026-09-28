@@ -5,7 +5,7 @@ description: Optimises images for websites with the `wio` CLI. It strips metadat
 
 # web-image-optimiser (`wio`)
 
-`wio` reads PNG, JPEG, WebP, AVIF and SVG files, always strips their metadata, and writes the smallest output that still scores above the quality target. It never prompts. If `wio` isn't on the PATH, `npx web-image-optimiser` runs the same CLI.
+`wio` reads PNG, JPEG, WebP, AVIF and SVG files, always strips their metadata, and writes the smallest output that still scores above the quality target. It never prompts. If `wio` isn't on the PATH, ask where it's installed. Never install `wio` or `web-image-optimiser` from npm: this tool isn't published there, so a package with either name is someone else's.
 
 ## Choosing `--to`
 
@@ -42,7 +42,7 @@ Don't run `wio ui`: it serves a comparison UI to a person's browser and runs unt
 
 ## Reading the result
 
-With `--json`, stdout holds exactly one `RunResult` (its JSON Schema ships as `web-image-optimiser/schema/run-result.schema.json`). Everything else goes to stderr.
+With `--json`, stdout holds exactly one `RunResult`. Everything else goes to stderr.
 
 ```json
 {

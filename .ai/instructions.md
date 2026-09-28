@@ -1,6 +1,6 @@
 # Instructions
 
-web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, JPEG, WebP, AVIF and SVG, always strips metadata, and writes the smallest output that stays above an SSIMULACRA 2 quality target. It ships as one npm package with no external binaries, and must behave the same on Windows and macOS.
+web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, JPEG, WebP, AVIF and SVG, always strips metadata, and writes the smallest output that stays above an SSIMULACRA 2 quality target. It is an application, a CLI and a local comparison UI, not a library: `package.json` is private, nothing is published to npm, and no other project imports its modules. It needs no external binaries, and must behave the same on Windows and macOS.
 
 ## Working in this repo
 
@@ -10,13 +10,14 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 - After a change, review it for simplicity, then update `README.md`, `docs/*.md` and `.ai/` in the same change so no doc describes behaviour the code doesn't have. A change to a CLI flag, code or output also updates the `--help` text in `src/cli/runCli.ts`, `docs/cli.md` and the shipped agent guide, `SKILL.md`.
 - When sharp, SVGO or another dependency falls short, prefer fixing or reporting it upstream. Keep any local workaround small, with a comment linking the upstream issue.
 - Follow only this repo's steering, not that of other projects open alongside it.
-- Add a line under **Unreleased** in `CHANGELOG.md` for every change a user of the package would notice, including every change to `tests/golden/golden.json`. Don't bump the version in an ordinary pull request: a release pull request does that (see the CI section of `design-patterns.md`).
+- Add a line under **Unreleased** in `CHANGELOG.md` for every change a user of `wio` would notice, including every change to `tests/golden/golden.json`. Don't bump the version in an ordinary pull request: a release pull request does that (see the CI section of `design-patterns.md`).
 
 ## Commands
 
 | Command                      | Purpose                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm` and `SKILL.md` into `dist/`, write the JSON Schema files into `dist/schema`, and build the UI in `ui/` into `dist/ui` with Vite |
+| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm`, and build the UI in `ui/` into `dist/ui` with Vite |
+| `npm link`                   | After `npm run build`, put `wio` and `web-image-optimiser` on the PATH, running this clone's `dist/`. It is how `wio` is installed, since it is never published |
 | `npm run dev [-- <folder>]`  | After `npm run build`, serve the UI with hot reload on `http://127.0.0.1:5173` and its API from a `wio ui` server on 5174, in one process, serving `fixtures/` or the folder given, and open the page signed in. The API runs from `dist`, so rebuild after changing `src/` |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |

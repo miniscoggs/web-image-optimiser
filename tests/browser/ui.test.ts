@@ -6,12 +6,12 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright-core";
 import type { Browser } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { UiServer } from "../../src/index.js";
+import type { UiServer } from "../../src/server/index.js";
 import { fixturePath } from "../fixtureManifest.js";
 
-type Library = typeof import("../../src/index.js");
+type Server = typeof import("../../src/server/index.js");
 
-const DIST_ENTRY = new URL("../../dist/index.js", import.meta.url);
+const DIST_ENTRY = new URL("../../dist/server/index.js", import.meta.url);
 const HOOK_TIMEOUT = 60_000; // chrome starts and stops slowly while the golden shards fill every core
 
 let folder = "";
@@ -22,14 +22,14 @@ let browser: Browser | undefined;
 // dist exists only after `npm run build`
 describe.skipIf(!existsSync(DIST_ENTRY))("wio ui in a browser", () => {
   beforeAll(async () => {
-    const library = (await import(DIST_ENTRY.href)) as Library;
+    const { startUiServer } = (await import(DIST_ENTRY.href)) as Server;
 
     folder = await mkdtemp(path.join(tmpdir(), "wio-browser-"));
     await copyFile(
       fixturePath("logo-alpha.png"),
       path.join(folder, "logo-alpha.png")
     );
-    server = await library.startUiServer({ root: folder });
+    server = await startUiServer({ root: folder });
     browser = await chromium.launch({ channel: "chrome" });
   }, HOOK_TIMEOUT);
   afterAll(async () => {

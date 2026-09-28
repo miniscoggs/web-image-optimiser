@@ -1,18 +1,12 @@
 # JSON contract
 
-`optimiseBatch` resolves to a `RunResult`, and reports progress as events. The CLI prints the same shapes: one `RunResult` with `--json`, and one event per line with `--ndjson`. `compareFiles` resolves to a `CompareResult`, which `wio compare --json` prints. Agents and scripts can rely on this contract. It is the zod schemas in `src/schema/contract.ts`, and the build writes it as JSON Schema (draft 2020-12) to:
-
-- `dist/schema/run-result.schema.json`
-- `dist/schema/event.schema.json`
-- `dist/schema/compare-result.schema.json`
-
-The package exports each as `web-image-optimiser/schema/<name>.schema.json`, such as `web-image-optimiser/schema/run-result.schema.json`.
+`wio --json` prints one `RunResult`, and `wio --ndjson` prints the run's progress as events, one per line. `wio compare --json` prints a `CompareResult`. Agents and scripts can rely on this contract, which is the zod schemas in `src/schema/contract.ts`.
 
 ## Versioning
 
 `schemaVersion` is `1`.
 
-- **Adding a field** is a minor change and keeps `schemaVersion`. The JSON Schema leaves every object open, so a validator built from today's schema accepts tomorrow's results. Ignore fields you don't know.
+- **Adding a field** is a minor change and keeps `schemaVersion`. Ignore fields you don't know.
 - **Renaming or removing a field, or changing what it means,** bumps `schemaVersion` and is recorded below.
 - **Codes** (`E_*` and `W_*`) are never renamed, removed or reused once released. New ones may be added, so treat an unknown code as a generic error or warning.
 - **Messages** are for people and may change between releases. Branch on codes, never on messages.
