@@ -103,6 +103,7 @@ A stage that rejects a file throws `OptimiserError` (`src/schema/`) with a code 
 - **A release pull request**, one that changes the version in `package.json`, runs the golden tests on every OS, and `scripts/check-release.mjs` checks that the version is higher than the base branch's, the lockfile matches it, and `CHANGELOG.md` has a `## <version>` heading.
 - **A manual run** (`gh workflow run ci.yml --ref <branch>`) runs the golden tests on every OS, for an engine change that needs checking on every platform before its release.
 - **A push to `main`** runs only the fast checks, because its pull request already ran the rest.
+- **Concurrency:** a newer run cancels an older one for the same ref and event, so a second push supersedes the first, but a manual run doesn't cancel the push run before it. A cancelled job fails "CI passed".
 - **"CI passed"** needs every other job, and passes when each one passed or wasn't needed. It's the one check to require: a skipped job counts as passing for a required check, so the individual jobs must not be required.
 
 ## Golden tests
