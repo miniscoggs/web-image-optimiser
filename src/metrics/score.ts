@@ -17,13 +17,6 @@ type ImageSize = Pick<MetricsImage, "width" | "height">;
  *
  * @param image - The image, or just its dimensions.
  * @returns `true` when both dimensions are at least 8 pixels.
- *
- * @example
- * ```ts
- * import { isScorable } from "web-image-optimiser";
- *
- * isScorable({ width: 6, height: 6 }); // false
- * ```
  */
 function isScorable(image: ImageSize) {
   return image.width >= MIN_SCORABLE_SIZE && image.height >= MIN_SCORABLE_SIZE;
@@ -38,13 +31,6 @@ function isScorable(image: ImageSize) {
  *
  * @param image - The image, or just its dimensions.
  * @returns `true` when the image has more than 26 million pixels.
- *
- * @example
- * ```ts
- * import { isDownscaledForScoring } from "web-image-optimiser";
- *
- * isDownscaledForScoring({ width: 8192, height: 5464 }); // true (44.8 MP)
- * ```
  */
 function isDownscaledForScoring(image: ImageSize) {
   return image.width * image.height > MAX_SCORED_PIXELS;
@@ -119,16 +105,6 @@ async function scoreRgb(reference: Buffer, distorted: Buffer, size: ImageSize) {
  * distortion. Heavily distorted images can score below 0.
  * @throws RangeError when a buffer's length doesn't match its dimensions, when the dimensions
  * differ, or when differing images are smaller than 8x8 (see {@link isScorable}).
- *
- * @example
- * ```ts
- * import { decodeForScoring, score, verdictFor } from "web-image-optimiser";
- *
- * const original = await decodeForScoring("photo.png");
- * const candidate = await decodeForScoring("photo.webp");
- * const value = await score(original, candidate);
- * console.log(value, verdictFor(value));
- * ```
  */
 async function score(reference: MetricsImage, distorted: MetricsImage) {
   assertComparable(reference, distorted);

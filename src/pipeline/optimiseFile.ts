@@ -23,6 +23,8 @@ import writeOutputs from "./writeOutputs.js";
 
 const NOTICEABLE_BELOW = 80; // under "very-high", the loss may show side by side
 
+type OutputSize = Pick<PipelineOutput, "width" | "height">;
+
 /**
  * Turns a blocked output into the file's result: a failure when it is the input, or a skip
  * when it already exists.
@@ -61,13 +63,18 @@ function blockedResult(
  * @param info - What `inspect` reported about it.
  * @param settings - The run's settings.
  * @param signal - Aborts the work.
+ * @returns The outputs, the warnings, and the outputs' size in pixels.
  */
 async function selectOutputs(
   file: InputFile,
   info: InspectResult,
   settings: PipelineSettings,
   signal: AbortSignal | undefined
-): Promise<{ chosen: ChosenCandidate[]; warnings: PipelineWarning[] }> {
+): Promise<{
+  chosen: ChosenCandidate[];
+  warnings: PipelineWarning[];
+  size: OutputSize;
+}> {
   if (info.format === "svg") {
     const candidate = await selectSvg(file.bytes, info.metadata, signal);
     const warnings: PipelineWarning[] =
@@ -83,6 +90,7 @@ async function selectOutputs(
     return {
       chosen: candidate === undefined ? [] : [{ ...candidate, role: "same" }],
       warnings,
+      size: { width: info.width, height: info.height },
     };
   }
 
@@ -90,11 +98,15 @@ async function selectOutputs(
   const source = await createRasterSource(
     file.bytes,
     rasterInfo,
-    settings.target,
+    settings,
     signal
   );
+  const { width, height } = source.image;
 
-  return selectRaster(source, settings.to, file.bytes.length);
+  return {
+    ...(await selectRaster(source, settings.to, file.bytes.length)),
+    size: { width, height },
+  };
 }
 
 /**
@@ -103,16 +115,20 @@ async function selectOutputs(
  * @param candidate - The candidate.
  * @param path - Where it goes.
  * @param inputBytes - The input's size.
+ * @param size - Its size in pixels.
  */
 function toOutput(
   candidate: ChosenCandidate,
   path: string,
-  inputBytes: number
+  inputBytes: number,
+  size: OutputSize
 ): PipelineOutput {
   return {
     role: candidate.role,
     path,
     format: candidate.format,
+    width: size.width,
+    height: size.height,
     method: candidate.method,
     ...(candidate.quality === undefined ? {} : { quality: candidate.quality }),
     bytes: candidate.bytes.length,
@@ -123,6 +139,14 @@ function toOutput(
     score: candidate.score,
     verdict: verdictFor(candidate.score),
     strippedMetadata: candidate.strippedMetadata,
+    ...(candidate.rights === undefined ||
+    Object.keys(candidate.rights).length === 0
+      ? {}
+      : { rights: candidate.rights }),
+    ...(candidate.rightsAdded === undefined ||
+    candidate.rightsAdded.length === 0
+      ? {}
+      : { rightsAdded: candidate.rightsAdded }),
   };
 }
 
@@ -156,7 +180,7 @@ async function optimiseInput(
     return blockedResult(early.blocked, base);
   }
 
-  const { chosen, warnings } = await selectOutputs(
+  const { chosen, warnings, size } = await selectOutputs(
     file,
     info,
     settings,
@@ -166,7 +190,7 @@ async function optimiseInput(
     candidate.bytes.equals(file.bytes)
   );
   const outputs = chosen.map((candidate) =>
-    toOutput(candidate, pathFor(candidate.format), file.bytes.length)
+    toOutput(candidate, pathFor(candidate.format), file.bytes.length, size)
   );
 
   for (const output of outputs.filter(
@@ -216,7 +240,14 @@ async function optimiseInput(
  * format is smaller, the input's metadata is stripped losslessly in its own format instead, and
  * only when there is nothing to strip is the input kept as it is. An output that would replace
  * the input needs `inPlace`, and one that would replace another existing file needs
- * `overwrite`. Every write goes to a temp file that is then renamed into place.
+ * `overwrite`. Every write goes to a temp file that is then renamed into place. A raster image
+ * wider than `maxWidth` is shrunk to it first, and then has no strip to fall back on, so it is
+ * kept as it is when nothing at the new width is smaller.
+ *
+ * A raster output keeps the input's copyright, licence and AI-origin fields as one XMP packet,
+ * with `rights` filling the fields the input lacks, unless `stripAll` is given. The packet counts
+ * in every size comparison: fields that would leave nothing smaller than the input are left out,
+ * the added ones first (`W_RIGHTS_NOT_ADDED`).
  *
  * Problems with the file itself come back as a `failed` result with an error code, never as a
  * rejection. Scoring takes about a second per megapixel per candidate, and a quality search
@@ -233,16 +264,6 @@ async function optimiseInput(
  * temp files.
  * @returns What was written, or would be in a dry run, with any warnings.
  * @throws RangeError when an option is invalid.
- *
- * @example
- * ```ts
- * import { optimiseFile } from "web-image-optimiser";
- *
- * const result = await optimiseFile("photo.jpg", { to: "suite", outDir: "web" });
- * for (const output of result.outputs) {
- *   console.log(output.path, output.bytes, output.score, output.verdict);
- * }
- * ```
  */
 async function optimiseFile(
   input: string,

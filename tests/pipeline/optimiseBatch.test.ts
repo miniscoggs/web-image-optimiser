@@ -107,6 +107,7 @@ describe("optimiseBatch", () => {
         inPlace: false,
         overwrite: false,
         dryRun: false,
+        stripAll: false,
         concurrency: 2,
       },
     });

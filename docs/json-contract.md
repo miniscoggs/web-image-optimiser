@@ -17,7 +17,7 @@
 | --- | --- |
 | `schemaVersion` | `1` |
 | `tool` | `version` (web-image-optimiser's), `sharp` and `libvips`. Encoded bytes vary between versions, so record these alongside any sizes you compare |
-| `options` | The options used, with defaults filled in: `to`, `target` (a preset resolved to its score), `outDir` (when given), `inPlace`, `overwrite`, `dryRun` and `concurrency` |
+| `options` | The options used, with defaults filled in: `to`, `target` (a preset resolved to its score), `outDir` (when given), `inPlace`, `overwrite`, `dryRun`, `maxWidth` (when given), `stripAll` (`--strip-all`), `rights` (the fields to add, trimmed, when any was given: `creator`, `credit`, `copyright`, `rightsUrl` and `licensorUrl`, from `--creator`, `--credit`, `--copyright`, `--rights-url` and `--licensor-url`) and `concurrency` |
 | `files` | One `FileResult` per input, in input order |
 | `totals` | See below |
 
@@ -28,13 +28,12 @@
 | Field | Meaning |
 | --- | --- |
 | `input` | The input path, as given |
-| `status` | `optimised` (at least one output was written, or would be in a dry run), `kept-original` (nothing was smaller and there was no metadata to strip), `skipped` (an output already exists) or `failed` |
+| `status` | `optimised` (at least one output was written, or would be in a dry run), `kept-original` (nothing was smaller and there was no metadata to strip besides the rights), `skipped` (an output already exists) or `failed` |
 | `bytes` | The input's size, once it has been read |
-| `width`, `height` | The image's displayed size in pixels, after EXIF orientation, once it has been inspected. Every output has the same size |
+| `width`, `height` | The image's displayed size in pixels, after EXIF orientation, once it has been inspected. Each output has its own |
 | `outputs` | What was written, AVIF first and the fallback last. Empty unless `optimised` |
 | `warnings` | `{ code, message }` for each warning |
 | `error` | `{ code, message }`, only when `failed` |
-| `markup` | Only from the CLI with `--markup`: the HTML that shows the file, a `<picture>` or an `<img>`. See [cli.md](./cli.md#markup) |
 
 Each output has:
 
@@ -43,6 +42,7 @@ Each output has:
 | `role` | `same` (the input's own format), `webp`, `avif`, or `fallback` (a suite's JPEG or PNG) |
 | `path` | Where it was written |
 | `format` | `png`, `jpeg`, `webp`, `avif` or `svg` |
+| `width`, `height` | Its size in pixels: the input's displayed size, or smaller when `maxWidth` shrank it |
 | `method` | `strip` (the input with its metadata removed and its image data untouched), `svgo`, `lossy`, `lossless` or `near-lossless`. A `lossy` PNG is a palette PNG, of at most 256 colours |
 | `quality` | The encoder quality (for a palette PNG, libimagequant's), or near-lossless level, when the method takes one |
 | `bytes` | Its size |
@@ -50,7 +50,9 @@ Each output has:
 | `saving` | The fraction of the input's size saved: 0 for a suite's unchanged fallback |
 | `score` | Its SSIMULACRA 2 score against the input; 100 for identical pixels |
 | `verdict` | `visually-lossless` (90+), `excellent` (85+), `very-high` (80+), `high` (70+), `noticeable` (50+) or `obvious` |
-| `strippedMetadata` | The kinds of metadata the input had that this output doesn't: `comment`, `editor`, `exif`, `gps`, `icc`, `iptc`, `other`, `text` or `xmp` |
+| `strippedMetadata` | The kinds of metadata the input had, each dropped or rewritten: `comment`, `editor`, `exif`, `gps`, `icc`, `iptc`, `other`, `text` or `xmp`. The rights are written anew, so `xmp` can sit beside `rights` |
+| `rights` | The rights fields the output carries in its XMP, when it has any: `creator` (a list, in order), `credit`, `copyright` (a list of `{ lang, value }`, `x-default` first), `webStatement`, `licensorUrl` (a list) and `digitalSourceType`. Absent for SVG |
+| `rightsAdded` | Which of those fields came from the options rather than the input, when any did |
 
 [modes.md](./modes.md) explains how outputs are chosen.
 
@@ -101,8 +103,11 @@ A run emits `run-start` first and `run-done` last, and each file's `file-start` 
 | --- | --- |
 | `W_ICC_KEPT` | A colour profile that isn't sRGB was kept, because removing it would shift the colours |
 | `W_NOTICEABLE` | An output scores below 80, so the loss may be visible side by side |
-| `W_NOT_CONVERTED` | Nothing in the requested format was smaller, so the file stays in its own format, stripped or kept |
+| `W_NOT_CONVERTED` | Nothing in the requested format was smaller, so the file stays in its own format: stripped, re-encoded at the new width when `maxWidth` shrank it, or kept |
+| `W_NOT_RESIZED` | The image is wider than `maxWidth`, but nothing at that width was smaller than the input and reached the target, so the file was kept as it is |
+| `W_NO_RIGHTS` | The outputs, or the kept original, carry none of Creator, Credit Line, Copyright Notice, Web Statement of Rights and Licensor URL. Not given with `stripAll`, or for SVG. The CLI's message names the flags that add the fields, and `--strip-all` |
 | `W_OUTPUT_EXISTS` | An output already exists, so the file was skipped |
+| `W_RIGHTS_NOT_ADDED` | Rights fields would have left nothing smaller than the input, so an output was written without them, or the file was kept as it is without fields it was given. The message names them. They are the added ones, or, for a small file whose rights move out of IPTC, EXIF or PNG text into a larger XMP packet, its own |
 | `W_SCORED_DOWNSCALED` | The image is over 26 megapixels, so it was scored at 26 MP and its scores are approximate |
 | `W_SVG_SAME_ONLY` | SVGs are always optimised as SVG |
 | `W_TARGET_NOT_REACHED` | No output in the requested format reached the target, so the highest-scoring one that is smaller was written |

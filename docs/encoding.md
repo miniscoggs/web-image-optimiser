@@ -4,12 +4,12 @@
 
 ## Encoders
 
-Every encoder starts from the same decoded source: 8-bit sRGB pixels with the orientation applied, which are also the pixels each candidate is scored against. Outputs carry no metadata and no colour profile. An alpha channel is kept only when some pixel is actually transparent.
+Every encoder starts from the same decoded source: 8-bit sRGB pixels with the orientation applied, which are also the pixels each candidate is scored against. Encodes carry no metadata and no colour profile, until the pipeline writes in the rights fields ([modes.md](./modes.md#metadata)). An alpha channel is kept only when some pixel is actually transparent.
 
 | Encoder | Settings | Qualities searched |
 | --- | --- | --- |
 | WebP lossy | effort 6, smart chroma subsampling, alpha at full quality, smart deblocking | 30–95 |
-| WebP lossless | effort 6 | — |
+| WebP lossless | effort 6, quality 100 (see Lossless WebP below) | — |
 | WebP near-lossless | effort 6; the quality is the near-lossless level | — |
 | AVIF | effort 6, `tune: iq`, 4:4:4 chroma | 20–90 |
 | JPEG | mozjpeg: progressive, trellis quantisation, optimised Huffman tables | 40–95 |
@@ -17,6 +17,23 @@ Every encoder starts from the same decoded source: 8-bit sRGB pixels with the or
 | PNG palette | libimagequant effort 7, dithering 1.0, zlib level 9 | 1–100 |
 
 A 16-bit source is reduced to 8 bits before encoding, so PNG output is 8-bit. The score shows whether that reduction is visible. WebP can't store an image wider or taller than 16383 pixels, AVIF (through sharp) 16384 pixels, or JPEG 65500 pixels, so such images get no candidate in that format.
+
+### Lossless WebP
+
+In lossless mode, libwebp reads the quality as how hard to compress, not as image quality: every setting decodes to the same pixels. sharp's default is 80, and `wio` passes 100, the hardest. Bytes for the lossless WebP of each graphic fixture at effort 6, from its decoded 8-bit pixels, with sharp 0.35.4 (libwebp 1.6.0):
+
+| Fixture | Quality 80 | **Quality 100** |
+| --- | --- | --- |
+| `screenshot.png` | 21,632 | **20,670** |
+| `text-chunks.png` | 76,926 | **75,454** |
+| `logo-alpha.png` | 2,852 | **2,770** |
+| `semi-transparent.png` | 6,454 | **6,290** |
+| `gradient.png` | 1,230 | **152** |
+| `gradient-16bit.png` | 71,106 | **710** |
+| `icon-6x6.png` | 72 | **54** |
+| `lossless.webp` | **2,810** | 2,824 |
+
+Quality 100 was smaller on every fixture but one, by up to 99% on the gradients, and 14 bytes larger on `lossless.webp`. Near-lossless WebP can't be tuned the same way, because libvips uses its one quality as both the near-lossless level and the effort.
 
 ## Quality search
 

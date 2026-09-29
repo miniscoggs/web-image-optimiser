@@ -97,15 +97,6 @@ async function scoreRenders(
  * @param options - `signal` aborts between renders, rejecting with the signal's reason.
  * @returns The optimised SVG, how it was made, its score and its gzipped size.
  * @throws When the SVG isn't well-formed XML or can't be rendered.
- *
- * @example
- * ```ts
- * import { readFile } from "node:fs/promises";
- * import { optimiseSvg } from "web-image-optimiser";
- *
- * const result = await optimiseSvg(await readFile("logo.svg"));
- * console.log(result.method, result.bytes.length, result.gzipBytes);
- * ```
  */
 async function optimiseSvg(
   source: Buffer,

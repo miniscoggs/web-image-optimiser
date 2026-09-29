@@ -12,6 +12,11 @@ import type {
   PipelineMode,
   PipelineOutputRole,
 } from "../../src/pipeline/index.js";
+import {
+  IMAGE_LICENCE_FIELDS,
+  buildRightsPacket,
+  setRights,
+} from "../../src/rights/index.js";
 import { fileResultSchema } from "../../src/schema/contract.js";
 import type { OptimiserWarningCode } from "../../src/schema/index.js";
 import { stripLossless } from "../../src/strip/index.js";
@@ -68,22 +73,23 @@ function hasWarning(result: PipelineFileResult, code: OptimiserWarningCode) {
 }
 
 /**
- * Returns whether a fixture has any metadata to strip.
+ * Returns whether a fixture holds nothing a strip would remove, keeping its rights.
  *
  * @param fixture - The fixture.
  * @param bytes - Its bytes.
  */
-async function hasSomethingToStrip(fixture: FixtureEntry, bytes: Buffer) {
+async function isOwnStrip(fixture: FixtureEntry, bytes: Buffer) {
   if (fixture.format === "svg") {
-    return (await stripSvg(bytes)).removed.length > 0;
+    return (await stripSvg(bytes)).removed.length === 0;
   }
 
-  const { removed } = stripLossless(bytes, {
+  const stripped = stripLossless(bytes, {
     format: fixture.format,
     orientation: fixture.orientation,
-  });
+  }).bytes;
+  const packet = buildRightsPacket(fixture.rights ?? {});
 
-  return removed.length > 0;
+  return setRights(stripped, fixture.format, packet).equals(bytes);
 }
 
 /**
@@ -101,8 +107,10 @@ async function expectRasterOutput(
 ) {
   const written = await readFile(output.path);
   const info = await inspect(written);
-  const kept =
-    output.method === "strip" && fixture.orientation !== 1 ? ["exif"] : [];
+  const kept = [
+    ...(output.method === "strip" && fixture.orientation !== 1 ? ["exif"] : []),
+    ...(output.rights === undefined ? [] : ["xmp"]),
+  ];
   const keptIcc =
     output.method === "strip" && fixture.icc === "non-srgb" ? "non-srgb" : null;
 
@@ -113,6 +121,7 @@ async function expectRasterOutput(
     height: fixture.height,
     icc: keptIcc,
     metadata: kept,
+    rights: output.rights ?? {},
   });
   if (!isOpaque(source)) {
     expect(info.hasAlpha).toBe(true);
@@ -140,11 +149,15 @@ async function expectRules(
   const target = isSvg ? SVG_TARGET : TARGET;
   const { outputs } = result;
   const roles = outputs.map((output) => output.role);
+  const rightsDropped = hasWarning(result, "W_RIGHTS_NOT_ADDED");
+  const licensed = IMAGE_LICENCE_FIELDS.some(
+    (field) => fixture.rights?.[field] !== undefined
+  );
 
   expect(["optimised", "kept-original"]).toContain(result.status);
   expect(result.status === "kept-original").toBe(outputs.length === 0);
   if (result.status === "kept-original") {
-    expect(await hasSomethingToStrip(fixture, bytes)).toBe(false);
+    expect(await isOwnStrip(fixture, bytes)).toBe(true);
   }
 
   for (const output of outputs) {
@@ -152,18 +165,31 @@ async function expectRules(
       output.role === "fallback" && output.bytes === bytes.length;
 
     expect(output.bytes < bytes.length || unchangedFallback).toBe(true);
+    expect(output).toMatchObject({
+      width: fixture.width,
+      height: fixture.height,
+    });
     expect(output.strippedMetadata).toEqual(
       expect.arrayContaining(fixture.metadata)
     );
     expect(
       output.score >= target || hasWarning(result, "W_TARGET_NOT_REACHED")
     ).toBe(true);
+    if (!isSvg) {
+      expect([
+        fixture.rights ?? {},
+        ...(rightsDropped ? [{}] : []),
+      ]).toContainEqual(output.rights ?? {}); // no fields are added, so an output keeps the fixture's, or none to be smaller
+    }
   }
 
   expect(hasWarning(result, "W_NOTICEABLE")).toBe(
     outputs.some((output) => output.score < 80)
   );
   expect(hasWarning(result, "W_SVG_SAME_ONLY")).toBe(isSvg && mode !== "same");
+  expect(hasWarning(result, "W_NO_RIGHTS")).toBe(
+    !isSvg && !licensed && !rightsDropped
+  );
   expect(hasWarning(result, "W_TOO_SMALL_TO_SCORE")).toBe(
     !isSvg && Math.min(fixture.width, fixture.height) < 8
   );

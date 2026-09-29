@@ -54,6 +54,20 @@ function* readBoxes(
 }
 
 /**
+ * Builds a box with a 32-bit size.
+ *
+ * @param type - The four-character box type.
+ * @param payload - The box's payload.
+ */
+function buildBox(type: string, payload: Buffer) {
+  const header = Buffer.alloc(8);
+
+  header.writeUInt32BE(header.length + payload.length, 0);
+  header.write(type, 4, "latin1");
+  return Buffer.concat([header, payload]);
+}
+
+/**
  * Rebuilds a box around a new payload, keeping its header's form (32-bit, 64-bit or
  * to-the-end size).
  *
@@ -161,6 +175,9 @@ class FieldWriter {
 
   /**
    * Returns the fields written so far, end to end.
+   *
+   * @throws RangeError when a value doesn't fit its field, including a value other than 0 in a
+   * field of size 0, which would otherwise be lost.
    */
   toBuffer() {
     const buffer = Buffer.alloc(
@@ -173,6 +190,8 @@ class FieldWriter {
         buffer.writeBigUInt64BE(BigInt(value), offset);
       } else if (size > 0) {
         buffer.writeUIntBE(value, offset, size);
+      } else if (value !== 0) {
+        throw new RangeError(`A field of size 0 can't hold ${value}`);
       }
       offset += size;
     }
@@ -183,6 +202,7 @@ class FieldWriter {
 export {
   FieldReader,
   FieldWriter,
+  buildBox,
   createOffsetMap,
   cutBox,
   readBoxes,

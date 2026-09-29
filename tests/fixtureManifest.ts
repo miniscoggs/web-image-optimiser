@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import type { ImageRights } from "../src/rights/index.js";
 
 const METADATA_KINDS = [
   "comment",
@@ -24,6 +25,8 @@ type FixtureEntry = {
   icc: "srgb" | "non-srgb" | null;
   metadata: (typeof METADATA_KINDS)[number][];
   svg?: { viewBox: boolean; title: boolean; referencedIds: string[] };
+  /** The rights fields a raster fixture carries, when it has any. */
+  rights?: ImageRights;
   source: string;
   licence: string;
 };

@@ -9,6 +9,7 @@ import {
   webpLossy,
   webpNearLossless,
 } from "../../src/encode/index.js";
+import createPipeline from "../../src/encode/createPipeline.js";
 import type { EncodeResult } from "../../src/encode/index.js";
 import { inspect } from "../../src/inspect/index.js";
 import { isOpaque } from "../../src/metrics/composite.js";
@@ -84,6 +85,18 @@ describe("encoders", () => {
       quality: 40,
     });
     expect(await webpLossless(source)).not.toHaveProperty("quality");
+  });
+
+  it("compresses lossless WebP harder than sharp's default", async () => {
+    const source = await decodeForScoring(fixturePath("gradient.png"));
+    const lossless = await webpLossless(source);
+    const sharpDefault = await createPipeline(source)
+      .webp({ effort: 6, lossless: true })
+      .toBuffer();
+    const decoded = await decodeForScoring(lossless.bytes);
+
+    expect(lossless.bytes.length).toBeLessThan(sharpDefault.length);
+    expect(await score(source, decoded)).toBe(100);
   });
 
   it("writes a palette PNG, with fewer colours at a lower quality", async () => {

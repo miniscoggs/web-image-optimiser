@@ -29,6 +29,7 @@ function suiteRun(): PipelineEvent[] {
         inPlace: false,
         overwrite: false,
         dryRun: false,
+        stripAll: false,
         concurrency: 1,
       },
       files: 1,
@@ -98,7 +99,6 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "Compare photos/cat.png" })
     ).toBeDefined();
-    expect(screen.getByRole("button", { name: "Copy markup" })).toBeDefined();
     expect(screen.queryByRole("note")).toBeNull(); // nothing blocked
   });
 

@@ -17,7 +17,10 @@ const WARNING_CODES = [
   "W_ICC_KEPT",
   "W_NOTICEABLE",
   "W_NOT_CONVERTED",
+  "W_NOT_RESIZED",
+  "W_NO_RIGHTS",
   "W_OUTPUT_EXISTS",
+  "W_RIGHTS_NOT_ADDED",
   "W_SCORED_DOWNSCALED",
   "W_SVG_SAME_ONLY",
   "W_TARGET_NOT_REACHED",
@@ -44,18 +47,6 @@ const WARNING_CODES = [
  * - `E_UNSUPPORTED_FORMAT`: the file isn't a PNG, JPEG, WebP, AVIF or SVG, or `compareFiles`
  *   was given an SVG.
  * - `E_WRITE`: an output can't be written, for example because the folder is read-only.
- *
- * @example
- * ```ts
- * import { inspect, OptimiserError, type OptimiserErrorCode } from "web-image-optimiser";
- *
- * let code: OptimiserErrorCode | undefined;
- * try {
- *   await inspect("animation.webp");
- * } catch (error) {
- *   if (error instanceof OptimiserError) code = error.code; // "E_ANIMATED"
- * }
- * ```
  */
 type OptimiserErrorCode = (typeof ERROR_CODES)[number];
 
@@ -66,9 +57,16 @@ type OptimiserErrorCode = (typeof ERROR_CODES)[number];
  *   shift its colours.
  * - `W_NOTICEABLE`: an output scores below 80, so the loss may be noticeable side by side.
  * - `W_NOT_CONVERTED`: no output in the requested format was smaller than the input, so the
- *   file was stripped in its own format, or kept.
+ *   file was stripped in its own format (re-encoded in it, when resized to `maxWidth`), or kept.
+ * - `W_NOT_RESIZED`: the image is wider than `maxWidth`, but nothing at that width was smaller
+ *   than the input and reached the target, so the file was kept as it is.
+ * - `W_NO_RIGHTS`: the outputs, or the kept original, carry none of the Creator, Credit Line,
+ *   Copyright Notice, Web Statement of Rights and Licensor URL fields. Not given with `stripAll`,
+ *   or for SVG.
  * - `W_OUTPUT_EXISTS`: an output already exists, so the file was skipped. Pass `overwrite` to
  *   replace it.
+ * - `W_RIGHTS_NOT_ADDED`: an output lacks rights fields, added or the file's own, that would
+ *   have left nothing smaller than the input, or the file was kept without fields it was given.
  * - `W_SCORED_DOWNSCALED`: the image is over 26 megapixels, so it was scored at 26 MP and its
  *   scores are approximate.
  * - `W_SVG_SAME_ONLY`: SVGs are always optimised as SVG, whatever format was asked for.
@@ -76,14 +74,6 @@ type OptimiserErrorCode = (typeof ERROR_CODES)[number];
  *   the highest-scoring one smaller than the input was written.
  * - `W_TOO_SMALL_TO_SCORE`: the image is under 8x8 pixels, too small to score, so only
  *   lossless outputs were tried.
- *
- * @example
- * ```ts
- * import { optimiseFile, type OptimiserWarningCode } from "web-image-optimiser";
- *
- * const result = await optimiseFile("photo.jpg", { to: "webp", outDir: "web" });
- * const codes: OptimiserWarningCode[] = result.warnings.map((warning) => warning.code);
- * ```
  */
 type OptimiserWarningCode = (typeof WARNING_CODES)[number];
 

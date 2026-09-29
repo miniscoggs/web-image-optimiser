@@ -1,6 +1,6 @@
 # web-image-optimiser
 
-Prepares images for websites. `wio` reads PNG, JPEG, WebP, AVIF and SVG files, always strips metadata, and writes the smallest output that stays above a perceptual quality target (SSIMULACRA 2), with a plain-language verdict when degradation would be noticeable.
+Prepares images for websites. `wio` reads PNG, JPEG, WebP, AVIF and SVG files, strips their metadata apart from the copyright, licence and AI-origin fields Google Images reads, and writes the smallest output that stays above a perceptual quality target (SSIMULACRA 2), with a plain-language verdict when degradation would be noticeable.
 
 > **Status:** in development. `wio` is an application, not a library, and it isn't published to npm: to install it, run `npm install`, `npm run build` and `npm link` in a clone.
 
@@ -9,13 +9,15 @@ Prepares images for websites. `wio` reads PNG, JPEG, WebP, AVIF and SVG files, a
 ```sh
 wio photos                                        # a WebP beside each image in photos/
 wio photos --recursive --out-dir web              # every subfolder too, mirrored into web/
-wio hero.jpg --to suite --out-dir web --markup    # AVIF, WebP and a fallback, with <picture> markup
+wio hero.jpg --to suite --out-dir web             # AVIF, WebP and a fallback
+wio photos --max-width 1600 --out-dir web         # photos cut down to 1600 px wide
+wio photos --creator "Jo Bloggs" --out-dir web    # credit the photos that have no Creator
 wio photos --dry-run --json                       # what would be written, as JSON
 wio compare photo.png photo.webp --diff diff.png  # the score, verdict and size change
 wio ui photos                                     # compare the outputs in the browser
 ```
 
-`--to` picks what to write: `webp` (the default), `avif`, `same` (each file's own format) or `suite` (AVIF, WebP and a JPEG or PNG fallback for `<picture>`). `--target` sets the lowest quality allowed, `high` (80) by default. Every output keeps the input's name with its own extension, beside the input or in `--out-dir`, and replaces an input only with `--in-place` and another existing file only with `--overwrite`. So without `--out-dir`, a file that would be replaced fails with `E_OUTPUT_IS_INPUT`: every file in `same` mode, a file already in the format asked for (a WebP in `webp` mode), and most files in `suite`. `--json` prints one result for scripts and agents, and the exit code is 0 when nothing failed, 1 when a file failed and 2 for a usage error. `wio ui` serves a comparison UI on 127.0.0.1, behind a session token: pick or drop images, run them, read the results, compare each output with the original (zoomed together, in a wipe or with a diff overlay), try a lossy output at other qualities, and copy the `wio` command that writes them. Its runs write into a temp folder, and the folder served changes only when you Write an output into it. [docs/cli.md](./docs/cli.md) describes every flag.
+`--to` picks what to write: `webp` (the default), `avif`, `same` (each file's own format) or `suite` (AVIF, WebP and a JPEG or PNG fallback for `<picture>`). `--target` sets the lowest quality allowed, `high` (80) by default, and `--max-width` shrinks wider images to a width first. The copyright and licence fields an image has are kept unless `--strip-all` is given, and `--creator`, `--credit`, `--copyright`, `--rights-url` and `--licensor-url` add those it lacks. Every output keeps the input's name with its own extension, beside the input or in `--out-dir`, and replaces an input only with `--in-place` and another existing file only with `--overwrite`. So without `--out-dir`, a file that would be replaced fails with `E_OUTPUT_IS_INPUT`: every file in `same` mode, a file already in the format asked for (a WebP in `webp` mode), and most files in `suite`. `--json` prints one result for scripts and agents, and the exit code is 0 when nothing failed, 1 when a file failed and 2 for a usage error. `wio ui` serves a comparison UI on 127.0.0.1, behind a session token: pick or drop images, run them, read the results, compare each output with the original (zoomed together, in a wipe or with a diff overlay), try a lossy output at other qualities, and copy the `wio` command that writes them. Its runs write into a temp folder, and the folder served changes only when you Write an output into it. [docs/cli.md](./docs/cli.md) describes every flag.
 
 ## Using with AI agents
 

@@ -1,34 +1,37 @@
 import isSrgbProfile from "../inspect/isSrgbProfile.js";
-import jpegSegments, { EOI, SOS } from "../inspect/jpegSegments.js";
+import jpegSegments, {
+  APP0,
+  APP1,
+  APP13,
+  EOI,
+  PHOTOSHOP_ID,
+  SOS,
+  XMP_IDS,
+  buildJpegSegment,
+  hasSegmentId,
+} from "../inspect/jpegSegments.js";
+import type { JpegSegment } from "../inspect/jpegSegments.js";
 import { OptimiserError } from "../schema/index.js";
 import createExifRewriter from "./createExifRewriter.js";
 import type { StripRemovedKind, StripResult } from "./types.js";
 
 type SegmentKind = "keep" | StripRemovedKind;
 
-const APP0 = 0xe0;
-const APP1 = 0xe1;
 const APP2 = 0xe2;
-const APP13 = 0xed;
 const APP14 = 0xee;
 const APP15 = 0xef;
 const COM = 0xfe;
 const ICC_ID = "ICC_PROFILE\0";
 const ICC_HEADER_LENGTH = ICC_ID.length + 2; // then sequence number and count
-const XMP_IDS = [
-  "http://ns.adobe.com/xap/1.0/\0",
-  "http://ns.adobe.com/xmp/extension/\0",
-];
 
 /**
  * Returns what a segment before `SOS` holds.
  *
- * @param marker - The segment's marker byte.
- * @param payload - The segment's payload, after its length field.
+ * @param segment - The segment.
  */
-function classifySegment(marker: number, payload: Buffer): SegmentKind {
-  const startsWith = (id: string) =>
-    payload.toString("latin1", 0, id.length) === id;
+function classifySegment(segment: JpegSegment): SegmentKind {
+  const { marker } = segment;
+  const startsWith = (id: string) => hasSegmentId(segment, id);
 
   if (marker === COM) {
     return "comment";
@@ -51,7 +54,7 @@ function classifySegment(marker: number, payload: Buffer): SegmentKind {
   if (marker === APP2 && startsWith(ICC_ID)) {
     return "icc";
   }
-  if (marker === APP13 && startsWith("Photoshop 3.0\0")) {
+  if (marker === APP13 && startsWith(PHOTOSHOP_ID)) {
     return "iptc";
   }
   return "other";
@@ -109,19 +112,6 @@ function findImageEnd(jpeg: Buffer, from: number) {
 }
 
 /**
- * Builds a JPEG marker segment.
- *
- * @param marker - The marker byte.
- * @param payload - The payload, up to 65533 bytes.
- */
-function buildSegment(marker: number, payload: Buffer) {
-  const header = Buffer.from([0xff, marker, 0, 0]);
-
-  header.writeUInt16BE(payload.length + 2, 2);
-  return Buffer.concat([header, payload]);
-}
-
-/**
  * Strips a JPEG's metadata segments, keeping `APP0` JFIF, `APP14` Adobe, a non-sRGB ICC profile,
  * an orientation-only EXIF when the orientation isn't 1, and the image data up to `EOI`.
  *
@@ -139,25 +129,24 @@ function stripJpeg(jpeg: Buffer, orientation: number): StripResult {
 
   const removed = new Set<StripRemovedKind>();
   const rewriteExif = createExifRewriter(orientation, removed);
-  const classified = segments.map((segment) => {
-    const payload = jpeg.subarray(segment.start + 4, segment.end);
-
-    return { segment, payload, kind: classifySegment(segment.marker, payload) };
-  });
+  const classified = segments.map((segment) => ({
+    segment,
+    kind: classifySegment(segment),
+  }));
   const iccPayloads = classified
     .filter(({ kind }) => kind === "icc")
-    .map(({ payload }) => payload);
+    .map(({ segment }) => segment.payload);
   const keepIcc = iccPayloads.length > 0 && !isSrgbJpegProfile(iccPayloads);
   const pieces = [jpeg.subarray(0, 2)];
 
-  for (const { segment, payload, kind } of classified) {
+  for (const { segment, kind } of classified) {
     if (kind === "keep" || (kind === "icc" && keepIcc)) {
       pieces.push(jpeg.subarray(segment.start, segment.end));
     } else if (kind === "exif") {
-      const replacement = rewriteExif(payload);
+      const replacement = rewriteExif(segment.payload);
 
       if (replacement !== undefined) {
-        pieces.push(buildSegment(APP1, replacement));
+        pieces.push(buildJpegSegment(APP1, replacement));
       }
     } else {
       removed.add(kind);

@@ -34,16 +34,6 @@ function luma(rgb: Buffer, offset: number) {
  * @returns PNG bytes with the same dimensions as the images.
  * @throws RangeError when a buffer's length doesn't match its dimensions, or the dimensions
  * differ.
- *
- * @example
- * ```ts
- * import { writeFile } from "node:fs/promises";
- * import { createDiffMap, decodeForScoring } from "web-image-optimiser";
- *
- * const original = await decodeForScoring("photo.png");
- * const candidate = await decodeForScoring("photo.webp");
- * await writeFile("diff.png", await createDiffMap(original, candidate));
- * ```
  */
 async function createDiffMap(reference: MetricsImage, distorted: MetricsImage) {
   assertComparable(reference, distorted);

@@ -1,12 +1,5 @@
 /**
  * Options for {@link startUiServer}.
- *
- * @example
- * ```ts
- * import type { UiServerOptions } from "web-image-optimiser";
- *
- * const options: UiServerOptions = { root: "photos", port: 8080 };
- * ```
  */
 type UiServerOptions = {
   /** The folder whose images the UI lists. It is the only folder the server reads from or writes to, besides a temp folder of its own. */
@@ -17,15 +10,6 @@ type UiServerOptions = {
 
 /**
  * A running UI server, from {@link startUiServer}.
- *
- * @example
- * ```ts
- * import { startUiServer, type UiServer } from "web-image-optimiser";
- *
- * const server: UiServer = await startUiServer({ root: "photos" });
- * console.log(server.url);
- * await server.close();
- * ```
  */
 type UiServer = {
   /** The address to open, which holds the session token. */

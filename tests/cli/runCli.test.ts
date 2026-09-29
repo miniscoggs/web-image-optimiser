@@ -13,6 +13,7 @@ import { stripVTControlCharacters } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCli } from "../../src/cli/index.js";
 import type { CliIo } from "../../src/cli/index.js";
+import { METRICS_VERDICTS } from "../../src/metrics/types.js";
 import {
   compareResultSchema,
   eventSchema,
@@ -21,6 +22,26 @@ import {
 import { fixturePath } from "../fixtureManifest.js";
 
 const PAIR_DIR = new URL("../../fixtures/ssimulacra2/", import.meta.url);
+
+const OPTIMISE_FLAGS = [
+  "--to <mode>",
+  "--target <preset|number>",
+  "--max-width <px>",
+  "--out-dir <dir>",
+  "--in-place",
+  "--overwrite",
+  "--recursive",
+  "--dry-run",
+  "--json",
+  "--ndjson",
+  "--concurrency <n>",
+  "--strip-all",
+  "--creator <name>",
+  "--credit <text>",
+  "--copyright <text>",
+  "--rights-url <url>",
+  "--licensor-url <url>",
+];
 
 let folder = "";
 
@@ -180,6 +201,95 @@ describe("wio optimise", () => {
     expect(overwritten.exitCode).toBe(0);
   });
 
+  it("shrinks wider images with --max-width, reporting it in the options", async () => {
+    const images = await copyFixtures(["logo-alpha.png"]);
+    const { exitCode, stdout } = await run([
+      images,
+      "--max-width",
+      "160",
+      "--dry-run",
+      "--json",
+    ]);
+    const result = runResultSchema.parse(JSON.parse(stdout));
+
+    expect(exitCode).toBe(0);
+    expect(result.options.maxWidth).toBe(160);
+    expect(result.files).toMatchObject([
+      { width: 320, height: 160, outputs: [{ width: 160, height: 80 }] },
+    ]);
+  });
+
+  it("adds the rights flags' fields, echoing them in the options", async () => {
+    const images = await copyFixtures(["logo-alpha.png"]);
+    const { exitCode, stdout } = await run([
+      images,
+      "--copyright",
+      " Copyright Example Ltd ",
+      "--rights-url",
+      "https://example.com/licence",
+      "--dry-run",
+      "--json",
+    ]);
+    const result = runResultSchema.parse(JSON.parse(stdout));
+
+    expect(exitCode).toBe(0);
+    expect(result.options).toMatchObject({
+      stripAll: false,
+      rights: {
+        copyright: "Copyright Example Ltd",
+        rightsUrl: "https://example.com/licence",
+      },
+    });
+    expect(result.files).toMatchObject([
+      {
+        outputs: [
+          {
+            rights: {
+              copyright: [
+                { lang: "x-default", value: "Copyright Example Ltd" },
+              ],
+              webStatement: "https://example.com/licence",
+            },
+            rightsAdded: ["copyright", "webStatement"],
+          },
+        ],
+        warnings: [],
+      },
+    ]);
+  });
+
+  it("removes every field with --strip-all, without W_NO_RIGHTS", async () => {
+    const images = await copyFixtures(["logo-alpha.png"]);
+    const { stdout } = await run([
+      images,
+      "--strip-all",
+      "--dry-run",
+      "--json",
+    ]);
+    const result = runResultSchema.parse(JSON.parse(stdout));
+
+    expect(result.options.stripAll).toBe(true);
+    expect(result.files).toMatchObject([{ warnings: [] }]);
+  });
+
+  it("names the flags that fix W_NO_RIGHTS, per file in the JSON and once in the table", async () => {
+    const images = await copyFixtures(["icon-6x6.png", "logo-alpha.png"]);
+    const json = await run([images, "--dry-run", "--json"]);
+    const table = await run([images, "--dry-run"]);
+    const { files } = runResultSchema.parse(JSON.parse(json.stdout));
+    const noRights = files.flatMap((file) =>
+      file.warnings.filter((warning) => warning.code === "W_NO_RIGHTS")
+    );
+
+    expect(noRights).toHaveLength(2);
+    expect(noRights[0]?.message).toContain("--copyright");
+    expect(noRights[0]?.message).toContain("--strip-all");
+    expect(table.stdout.match(/W_NO_RIGHTS/g)).toHaveLength(1);
+    expect(table.stdout).toContain(
+      "W_NO_RIGHTS 2 files have no copyright or licence metadata ("
+    );
+  });
+
   it("writes nothing with --dry-run", async () => {
     const images = await copyFixtures(["icon-6x6.png"]);
     const { exitCode, stdout } = await run([images, "--dry-run"]);
@@ -187,44 +297,6 @@ describe("wio optimise", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Dry run: nothing was written.");
     expect(await listFiles(images)).toEqual(["icon-6x6.png"]);
-  });
-
-  it("adds each file's markup with --to suite --markup", async () => {
-    const images = await copyFixtures(["icon-6x6.png"]);
-    const outDir = path.join(folder, "web");
-    const { stdout } = await run([
-      images,
-      "--to",
-      "suite",
-      "--out-dir",
-      outDir,
-      "--markup",
-      "--json",
-    ]);
-    const [file] = runResultSchema.parse(JSON.parse(stdout)).files;
-
-    expect(file?.markup).toBe(
-      [
-        "<picture>",
-        '  <source type="image/webp" srcset="icon-6x6.webp">',
-        '  <img src="icon-6x6.png" width="6" height="6" alt="TODO: describe image" loading="lazy" decoding="async">',
-        "</picture>",
-      ].join("\n")
-    );
-
-    const table = await run([
-      images,
-      "--to",
-      "suite",
-      "--out-dir",
-      outDir,
-      "--markup",
-      "--overwrite",
-    ]);
-
-    expect(table.stdout).toContain(
-      `<!-- ${path.join(images, "icon-6x6.png")} -->\n<picture>\n`
-    );
   });
 
   it.each([["optimise"], ["optimize"]])(
@@ -246,12 +318,31 @@ describe("wio optimise", () => {
   it.each([
     ["no inputs", []],
     ["an unknown flag", ["image.png", "--bogus"]],
-    ["--markup outside suite", ["image.png", "--markup"]],
     ["--json with --ndjson", ["image.png", "--json", "--ndjson"]],
     ["an unknown mode", ["image.png", "--to", "gif"]],
     ["a target over 100", ["image.png", "--target", "101"]],
     ["an unknown target preset", ["image.png", "--target", "best"]],
     ["a concurrency of 0", ["image.png", "--concurrency", "0"]],
+    ["a max width of 0", ["image.png", "--max-width", "0"]],
+    ["a fractional max width", ["image.png", "--max-width", "1.5"]],
+    ["a max width that isn't a number", ["image.png", "--max-width", "wide"]],
+    [
+      "--strip-all with a rights flag",
+      ["image.png", "--strip-all", "--credit", "x"],
+    ],
+    [
+      "a rights flag with --strip-all",
+      ["image.png", "--licensor-url", "https://example.com", "--strip-all"],
+    ],
+    ["a creator of spaces alone", ["image.png", "--creator", "  "]],
+    [
+      "a rights URL that isn't http or https",
+      ["image.png", "--rights-url", "ftp://example.com/licence"],
+    ],
+    [
+      "a licensor URL that isn't absolute",
+      ["image.png", "--licensor-url", "example.com"],
+    ],
   ])("exits 2 for %s, printing nothing on stdout", async (_name, argv) => {
     const { exitCode, stdout, stderr } = await run(argv);
 
@@ -269,14 +360,52 @@ describe("wio optimise", () => {
     expect(stderr).toContain("E_NO_INPUTS");
   });
 
-  it("prints help with the exit codes, and the version, exiting 0", async () => {
+  it("prints help with every option and section, and the version, exiting 0", async () => {
     const help = await run(["--help"]);
     const version = await run(["--version"]);
+    const headings = [...help.stdout.matchAll(/^(\w[\w ]*):$/gm)].map(
+      ([, heading]) => heading
+    );
 
-    expect(help.exitCode).toBe(0);
-    expect(help.stdout).toContain("Exit codes:");
+    expect(help).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(headings).toEqual([
+      "Arguments",
+      "Options",
+      "Commands",
+      "Modes",
+      "Targets",
+      "Outputs",
+      "Inputs",
+      "Metadata",
+      "Examples",
+      "Exit codes",
+    ]);
+    for (const flag of OPTIMISE_FLAGS) {
+      expect(help.stdout).toContain(`\n  ${flag} `);
+    }
     expect(version).toMatchObject({ exitCode: 0, stdout: "0.1.0\n" });
   });
+
+  it("says in its help what metadata is kept and removed", async () => {
+    const { stdout } = await run(["--help"]);
+    const metadata = /\nMetadata:\n([\s\S]*?)\n\n/.exec(stdout)?.[1] ?? "";
+
+    expect(metadata).toMatch(/^ {2}Kept {5}Creator, /);
+    expect(metadata).toMatch(/\n {2}Removed {2}everything else: /);
+    expect(metadata).toMatch(/\n {2}SVGs {5}keep <title>/);
+    expect(metadata).toContain("--strip-all removes the kept fields too");
+  });
+
+  it.each(["--help", "optimise --help", "compare --help", "ui --help"])(
+    "fits wio %s within 80 columns",
+    async (args) => {
+      const { stdout } = await run(args.split(" "));
+
+      for (const line of stdout.split("\n")) {
+        expect(line.length, line).toBeLessThanOrEqual(80);
+      }
+    }
+  );
 
   it("rejects with the signal's reason when stopped", async () => {
     const images = await copyFixtures(["icon-6x6.png"]);
@@ -307,6 +436,18 @@ describe("wio compare", () => {
     );
     expect(stdout).toContain(`Diff   ${diff}\n`);
     expect(await listFiles(folder)).toEqual(["diff.png"]);
+  });
+
+  it("gives every verdict's lowest score in its help", async () => {
+    const { exitCode, stdout } = await run(["compare", "--help"]);
+    const text = stdout.replaceAll(/\s+/g, " ");
+
+    expect(exitCode).toBe(0);
+    for (const verdict of METRICS_VERDICTS) {
+      expect(text).toMatch(
+        new RegExp(` ${verdict} \\((\\d+\\+|below \\d+)\\)`)
+      );
+    }
   });
 
   it("prints one CompareResult with --json, with a hint when the diff map exists", async () => {

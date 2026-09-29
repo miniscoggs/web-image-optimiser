@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PipelineFileResult } from "../../src/pipeline/types.js";
-import { cliBlockNote, cliCommand, markupText } from "../../ui/src/copyText.js";
+import { cliBlockNote, cliCommand } from "../../ui/src/copyText.js";
 
 const REFS = [
   "root/photo.jpg",
@@ -71,28 +70,5 @@ describe("cliBlockNote", () => {
     expect(cliBlockNote([{ ref: "root/b.png", running: false }])).toBe(
       undefined
     );
-  });
-});
-
-describe("markupText", () => {
-  it("lists each file's markup after a comment naming it, as the CLI prints it", () => {
-    const file = (input: string, markup?: string): PipelineFileResult => ({
-      input,
-      status: "optimised",
-      outputs: [],
-      warnings: [],
-      ...(markup === undefined ? {} : { markup }),
-    });
-
-    expect(
-      markupText([
-        file("root/blog/a.png", '<img src="blog/a.png">'),
-        file("root/b.png"),
-        file("session/uploads/1/c.jpg", '<img src="c.jpg">'),
-      ])
-    ).toBe(
-      '<!-- blog/a.png -->\n<img src="blog/a.png">\n\n<!-- c.jpg -->\n<img src="c.jpg">\n'
-    );
-    expect(markupText([file("root/b.png")])).toBe("");
   });
 });

@@ -25,18 +25,6 @@ import type {
  * one per 4 GiB of memory, because scoring a very large image takes that much.
  * @returns Every file's result in input order, with totals and the versions used.
  * @throws RangeError when an option or the concurrency is invalid.
- *
- * @example
- * ```ts
- * import { optimiseBatch } from "web-image-optimiser";
- *
- * const result = await optimiseBatch(["hero.jpg", "logo.png"], { to: "suite", outDir: "web" }, {
- *   onEvent: (event) => {
- *     if (event.type === "file-done") console.log(event.file.input, event.file.status);
- *   },
- * });
- * console.log(result.totals);
- * ```
  */
 async function optimiseBatch(
   inputs: PipelineBatchInput[],

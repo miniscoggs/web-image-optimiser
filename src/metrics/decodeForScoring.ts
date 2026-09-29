@@ -13,17 +13,6 @@ import type { MetricsDecodeOptions, MetricsImage } from "./types.js";
  * @param input - A file path, or the encoded image bytes.
  * @param options - Decoding options.
  * @returns The decoded pixels and their dimensions.
- *
- * @example
- * ```ts
- * import { decodeForScoring, score } from "web-image-optimiser";
- *
- * const original = await decodeForScoring("photo.jpg");
- * const candidate = await decodeForScoring("photo.webp");
- * console.log(await score(original, candidate));
- *
- * const retina = await decodeForScoring("logo.svg", { density: 144 }); // twice the size
- * ```
  */
 async function decodeForScoring(
   input: Buffer | string,

@@ -5,6 +5,7 @@ import {
   diffResponseSchema,
   encodeResponseSchema,
 } from "../../src/server/api.js";
+import { readRights } from "../../src/rights/index.js";
 import { startUiSession } from "./uiSession.js";
 import type { UiSession } from "./uiSession.js";
 
@@ -15,6 +16,7 @@ beforeAll(async () => {
     "gradient-16bit.png",
     "logo-alpha.png",
     "icon-6x6.png",
+    "text-chunks.png",
     "title-viewbox.svg",
   ]);
 });
@@ -66,6 +68,26 @@ describe("POST /api/encode", () => {
     expect(body).toMatchObject({ format: "png", quality: 50 });
     expect(body.ref).toMatch(/^session\/encodes\/\d+\/logo-alpha\.png$/);
     expect(await sharp(image).metadata()).toMatchObject({ isPalette: true });
+  });
+
+  it("carries the source's rights fields, counted in its size", async () => {
+    const body = encodeResponseSchema.parse(
+      await (
+        await session.post("/api/encode", {
+          file: "root/text-chunks.png",
+          format: "webp",
+          quality: 60,
+        })
+      ).json()
+    );
+    const image = Buffer.from(
+      await (await session.image(body.ref)).arrayBuffer()
+    );
+
+    expect(image.byteLength).toBe(body.bytes);
+    expect(readRights(image, "webp")).toEqual({
+      creator: ["Fixture Author"],
+    });
   });
 
   it.each([

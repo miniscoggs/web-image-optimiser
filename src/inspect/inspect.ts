@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import sharp from "sharp";
+import { readRights } from "../rights/index.js";
 import { OptimiserError } from "../schema/index.js";
 import { detectFormat, isAvifSequence } from "./detectFormat.js";
 import hasGps from "./hasGps.js";
@@ -62,7 +63,8 @@ function hasJpegComment(jpeg: Buffer) {
 
 /**
  * Inspects an image: its format (from its bytes, never its extension), displayed size, alpha,
- * bit depth, orientation, colour profile and the metadata it carries.
+ * bit depth, orientation, colour profile, the metadata it carries and, for a raster image, its
+ * rights fields.
  *
  * Only the header is read, so a file whose image data is damaged can still pass. SVGs are
  * parsed to report their `viewBox`, `<title>` and internal ID references.
@@ -72,14 +74,6 @@ function hasJpegComment(jpeg: Buffer) {
  * @throws {@link OptimiserError} with `E_UNSUPPORTED_FORMAT` when the file isn't a PNG, JPEG,
  * WebP, AVIF or SVG, `E_ANIMATED` when it's animated, or `E_DECODE` when its header can't be
  * read.
- *
- * @example
- * ```ts
- * import { inspect } from "web-image-optimiser";
- *
- * const info = await inspect("photo.jpg");
- * console.log(info.format, info.width, info.height, info.metadata); // "jpeg" 4000 3000 ["exif", "gps"]
- * ```
  */
 async function inspect(input: Buffer | string): Promise<InspectResult> {
   const bytes = typeof input === "string" ? await readFile(input) : input;
@@ -129,7 +123,9 @@ async function inspect(input: Buffer | string): Promise<InspectResult> {
     orientation: header.orientation ?? 1,
     icc,
     metadata: INSPECT_METADATA_KINDS.filter((kind) => present[kind]),
-    ...(svg && { svg: svg.details }),
+    ...(format === "svg"
+      ? svg && { svg: svg.details }
+      : { rights: readRights(bytes, format) }),
   };
 }
 

@@ -9,7 +9,7 @@ import CopyButton from "./components/CopyButton.js";
 import FileList from "./components/FileList.js";
 import OptionsPanel from "./components/OptionsPanel.js";
 import ResultsTable from "./components/ResultsTable.js";
-import { cliBlockNote, cliCommand, markupText } from "./copyText.js";
+import { cliBlockNote, cliCommand } from "./copyText.js";
 import downloadJson from "./downloadJson.js";
 import { toRunResult } from "./runState.js";
 import type { RunState } from "./runState.js";
@@ -196,9 +196,6 @@ function App() {
               >
                 Export report
               </button>
-              {run.start?.options.to === "suite" && (
-                <CopyButton label="Copy markup" text={markupText(finished)} />
-              )}
             </div>
           </div>
           {run.files.length > 0 && (

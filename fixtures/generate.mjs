@@ -1,6 +1,6 @@
 // Builds the synthetic fixtures and manifest.json. `--photos` also re-derives the photos from their sources.
 import { createHash } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { crc32 } from "node:zlib";
 import { format, resolveConfig } from "prettier";
 import sharp from "sharp";
@@ -49,6 +49,38 @@ const XMP_PACKET = [
   "</x:xmpmeta>",
   '<?xpacket end="w"?>',
 ].join("");
+const RIGHTS_XMP = [
+  '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>',
+  '<x:xmpmeta xmlns:x="adobe:ns:meta/">',
+  '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">',
+  '<rdf:Description rdf:about=""',
+  ' xmlns:dc="http://purl.org/dc/elements/1.1/"',
+  ' xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"',
+  ' xmlns:xmpRights="http://ns.adobe.com/xap/1.0/rights/"',
+  ' xmlns:plus="http://ns.useplus.org/ldf/xmp/1.0/"',
+  ' xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"',
+  ' photoshop:Credit="Example Picture Library">',
+  "<dc:creator><rdf:Seq><rdf:li>Ada Example</rdf:li><rdf:li>Grace Example</rdf:li></rdf:Seq></dc:creator>",
+  '<dc:rights><rdf:Alt><rdf:li xml:lang="x-default">\u00a9 2026 Example Ltd</rdf:li><rdf:li xml:lang="de">\u00a9 2026 Example GmbH</rdf:li></rdf:Alt></dc:rights>',
+  "<xmpRights:WebStatement>https://example.com/licence</xmpRights:WebStatement>",
+  '<plus:Licensor><rdf:Seq><rdf:li rdf:parseType="Resource"><plus:LicensorURL>https://example.com/buy</plus:LicensorURL></rdf:li></rdf:Seq></plus:Licensor>',
+  "<Iptc4xmpExt:DigitalSourceType>http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture</Iptc4xmpExt:DigitalSourceType>",
+  "</rdf:Description>",
+  "</rdf:RDF>",
+  "</x:xmpmeta>",
+  '<?xpacket end="w"?>',
+].join("");
+const IIM_UTF8 = Buffer.from([0x1b, 0x25, 0x47]); // ESC % G
+const FIXTURE_AUTHOR_RIGHTS = { creator: ["Fixture Author"] };
+const WILFREDOR_RIGHTS = {
+  creator: ["Wilfredo R. Rodriguez H."],
+  copyright: [
+    {
+      lang: "x-default",
+      value: "Creative Commons CC0 1.0 Universal Public Domain",
+    },
+  ],
+};
 
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160">
   <rect x="16" y="16" width="128" height="128" rx="28" fill="#2563eb"/>
@@ -197,6 +229,35 @@ function jpegSegment(marker, data) {
 }
 
 /**
+ * Builds a JPEG APP13 segment holding IPTC IIM datasets in an 8BIM resource, as Photoshop
+ * writes it.
+ *
+ * @param datasets - [record, dataset, value] triples, in order.
+ */
+function iimSegment(datasets) {
+  const record = Buffer.concat(
+    datasets.map(([recordNumber, dataset, value]) => {
+      const header = Buffer.from([0x1c, recordNumber, dataset, 0, 0]);
+      header.writeUInt16BE(value.length, 3);
+      return Buffer.concat([header, value]);
+    })
+  );
+  const resource = Buffer.alloc(12); // "8BIM", the IPTC resource ID, an empty padded name, the size
+  resource.write("8BIM", 0, "latin1");
+  resource.writeUInt16BE(0x0404, 4);
+  resource.writeUInt32BE(record.length, 8);
+  return jpegSegment(
+    0xed,
+    Buffer.concat([
+      Buffer.from("Photoshop 3.0\0", "latin1"),
+      resource,
+      record,
+      Buffer.alloc(record.length % 2),
+    ])
+  );
+}
+
+/**
  * Splits a JPEG into its leading APPn/COM segments and everything after them.
  *
  * @param jpeg - JPEG bytes.
@@ -314,6 +375,30 @@ async function buildAnimatedWebp() {
   return sharp(frames, { join: { animated: true } })
     .webp({ loop: 0, delay: [120, 120, 120] })
     .toBuffer();
+}
+
+/**
+ * Builds a crop of the butterfly photo carrying every rights field in XMP, a different Creator
+ * in IPTC IIM and an EXIF Artist, so the order in which carriers are read shows.
+ */
+async function buildRights() {
+  const photo = await readFile(new URL("photo-butterfly.jpg", FIXTURE_DIR));
+  const crop = await sharp(photo)
+    .extract({ left: 640, top: 400, width: 320, height: 240 })
+    .png()
+    .toBuffer(); // otherwise libvips keeps the photo's exif thumbnail
+  const jpeg = await sharp(crop)
+    .withExif({ IFD0: { Artist: "EXIF Artist" } })
+    .withXmp(RIGHTS_XMP)
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer();
+  const iim = iimSegment([
+    [1, 90, IIM_UTF8],
+    [2, 0, Buffer.from([0, 4])], // record version 4
+    [2, 80, Buffer.from("IIM By-line")],
+  ]);
+  const { segments, body } = splitJpegHeader(jpeg);
+  return joinJpeg([...segments, iim], body);
 }
 
 /**
@@ -437,6 +522,7 @@ const FIXTURES = [
       width: 320,
       height: 240,
       metadata: ["exif", "text"],
+      rights: FIXTURE_AUTHOR_RIGHTS,
     },
     build: async () => {
       const png = await renderScene(320, 240, 3)
@@ -460,6 +546,7 @@ const FIXTURES = [
       orientation: 6,
       icc: "srgb",
       metadata: ["comment", "exif", "gps", "xmp"],
+      rights: FIXTURE_AUTHOR_RIGHTS,
     },
     notes:
       'Stored 480x320 with the marker top-left; displays rotated 90 degrees clockwise. Carries libvips\'s compact v4 profile, described as just "sRGB".',
@@ -499,6 +586,7 @@ const FIXTURES = [
       width: 480,
       height: 320,
       metadata: ["exif", "xmp"],
+      rights: FIXTURE_AUTHOR_RIGHTS,
     },
     build: () =>
       renderScene(480, 320, 2)
@@ -515,6 +603,7 @@ const FIXTURES = [
       width: 320,
       height: 160,
       metadata: ["exif", "xmp"],
+      rights: FIXTURE_AUTHOR_RIGHTS,
     },
     build: () =>
       sharp(Buffer.from(LOGO_SVG))
@@ -561,6 +650,7 @@ const FIXTURES = [
       height: 480,
       icc: "srgb",
       metadata: ["exif", "gps", "xmp"],
+      rights: FIXTURE_AUTHOR_RIGHTS,
     },
     notes:
       "Stored 480x320 with the marker top-left; an irot property turns it 90 degrees clockwise. AVIF orientation lives in irot, not EXIF, so sharp reports none. Carries an sRGB rICC colour property before irot in ipco, plus Exif and XMP items.",
@@ -627,6 +717,7 @@ const FIXTURES = [
       height: 1085,
       icc: "srgb",
       metadata: ["exif", "gps", "iptc", "xmp"],
+      rights: WILFREDOR_RIGHTS,
     },
     notes:
       "Macro with bokeh. Has an APP14 Adobe segment and no Orientation tag.",
@@ -646,6 +737,7 @@ const FIXTURES = [
       height: 894,
       icc: "srgb",
       metadata: ["exif", "gps", "iptc", "xmp"],
+      rights: WILFREDOR_RIGHTS,
     },
     notes:
       "Night scene with point lights and noise. Has an APP14 Adobe segment.",
@@ -693,6 +785,37 @@ const FIXTURES = [
       author: "Wilfredor",
       sha1: "31e75119e15518b56ee9658bb629a4e4d0c3e174",
     },
+  },
+  {
+    file: "rights.jpg",
+    origin: {
+      source: "fixtures/generate.mjs",
+      licence: "CC0-1.0",
+      derivation:
+        "A 320x240 crop of photo-butterfly.jpg (mozjpeg q85), with made-up rights metadata added.",
+    },
+    traits: {
+      kind: "photo",
+      format: "jpeg",
+      width: 320,
+      height: 240,
+      metadata: ["exif", "iptc", "xmp"],
+      rights: {
+        creator: ["Ada Example", "Grace Example"],
+        credit: "Example Picture Library",
+        copyright: [
+          { lang: "x-default", value: "\u00a9 2026 Example Ltd" },
+          { lang: "de", value: "\u00a9 2026 Example GmbH" },
+        ],
+        webStatement: "https://example.com/licence",
+        licensorUrl: ["https://example.com/buy"],
+        digitalSourceType:
+          "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture",
+      },
+    },
+    notes:
+      "Every rights field in XMP, a different Creator in IPTC IIM (2:80, declared UTF-8) and an EXIF Artist; the XMP values win.",
+    build: buildRights,
   },
 ];
 

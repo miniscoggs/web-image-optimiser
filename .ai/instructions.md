@@ -1,6 +1,6 @@
 # Instructions
 
-web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, JPEG, WebP, AVIF and SVG, always strips metadata, and writes the smallest output that stays above an SSIMULACRA 2 quality target. It is an application, a CLI and a local comparison UI, not a library: `package.json` is private, nothing is published to npm, and no other project imports its modules. It needs no external binaries, and must behave the same on Windows and macOS.
+web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, JPEG, WebP, AVIF and SVG, strips metadata apart from the copyright, licence and AI-origin fields Google Images reads, and writes the smallest output that stays above an SSIMULACRA 2 quality target. It is an application, a CLI and a local comparison UI, not a library: `package.json` is private, nothing is published to npm, and no other project imports its modules. It needs no external binaries, and must behave the same on Windows and macOS.
 
 ## Working in this repo
 
@@ -22,7 +22,7 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
 | `npm test`                   | Every test, then `npm run typecheck`. The golden tests make it take a few minutes                          |
-| `npm run test:fast`          | Every test except the golden and browser tests (about 20 s), then the type-check. Use it while iterating  |
+| `npm run test:fast`          | Every test except the golden and browser tests (about 30 s), then the type-check. Use it while iterating  |
 | `npm run test:browser`       | Only the Playwright flow in `tests/browser/`, which drives the built UI in Google Chrome. Run `npm run build` first |
 | `npm run typecheck`          | Type-check `src/` and `tests/`, then the UI in `ui/` with `tests/ui/`, which has its own browser `tsconfig` |
 | `npm run test:golden`        | Only the golden tests in `tests/golden/`                                                                 |

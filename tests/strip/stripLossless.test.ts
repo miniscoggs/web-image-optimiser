@@ -212,6 +212,7 @@ describe("stripLossless", () => {
         bytes: stripped.length,
         icc: before.icc === "non-srgb" ? "non-srgb" : null,
         metadata: before.orientation === 1 ? [] : ["exif"],
+        rights: {},
       });
       expect(removed).toEqual(expect.arrayContaining(before.metadata));
       expect(removed.includes("icc")).toBe(before.icc === "srgb");

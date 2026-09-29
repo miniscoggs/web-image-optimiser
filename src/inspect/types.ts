@@ -1,3 +1,5 @@
+import type { ImageRights } from "../rights/index.js";
+
 const INSPECT_FORMATS = ["png", "jpeg", "webp", "avif", "svg"] as const;
 const INSPECT_METADATA_KINDS = [
   "comment",
@@ -11,13 +13,6 @@ const INSPECT_METADATA_KINDS = [
 
 /**
  * An input format `wio` reads, detected from the file's bytes rather than its extension.
- *
- * @example
- * ```ts
- * import { inspect, type InspectFormat } from "web-image-optimiser";
- *
- * const { format }: { format: InspectFormat } = await inspect("photo.jpg"); // "jpeg"
- * ```
  */
 type InspectFormat = (typeof INSPECT_FORMATS)[number];
 
@@ -31,25 +26,11 @@ type InspectFormat = (typeof INSPECT_FORMATS)[number];
  * - `iptc`: IPTC captions and credits.
  * - `text`: PNG text chunks (`tEXt`, `zTXt` and `iTXt`).
  * - `xmp`: an XMP packet.
- *
- * @example
- * ```ts
- * import { inspect, type InspectMetadataKind } from "web-image-optimiser";
- *
- * const kinds: InspectMetadataKind[] = (await inspect("photo.jpg")).metadata;
- * ```
  */
 type InspectMetadataKind = (typeof INSPECT_METADATA_KINDS)[number];
 
 /**
  * What {@link inspect} reports about an SVG's structure.
- *
- * @example
- * ```ts
- * import { inspect, type InspectSvg } from "web-image-optimiser";
- *
- * const svg: InspectSvg | undefined = (await inspect("logo.svg")).svg;
- * ```
  */
 type InspectSvg = {
   /** Whether the root `<svg>` has a `viewBox`, which lets it scale. */
@@ -65,13 +46,6 @@ type InspectSvg = {
 
 /**
  * What {@link inspect} reports about an image.
- *
- * @example
- * ```ts
- * import { inspect, type InspectResult } from "web-image-optimiser";
- *
- * const info: InspectResult = await inspect("photo.jpg");
- * ```
  */
 type InspectResult = {
   format: InspectFormat;
@@ -93,6 +67,8 @@ type InspectResult = {
   metadata: InspectMetadataKind[];
   /** SVG structure, present only for SVG. */
   svg?: InspectSvg;
+  /** The rights fields, from `readRights`, empty when there are none. Absent for SVG. */
+  rights?: ImageRights;
 };
 
 export { INSPECT_FORMATS, INSPECT_METADATA_KINDS };

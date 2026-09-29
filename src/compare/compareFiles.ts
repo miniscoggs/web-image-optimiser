@@ -201,14 +201,6 @@ async function compareImages(
  * @param context - `signal` aborts the comparison.
  * @returns Both images, the score, verdict and saving, and any warnings or error.
  * @throws RangeError when the diff map's path doesn't end in `.png`.
- *
- * @example
- * ```ts
- * import { compareFiles } from "web-image-optimiser";
- *
- * const result = await compareFiles("photo.png", "photo.webp", { diff: "diff.png" });
- * console.log(result.score, result.verdict, result.saving);
- * ```
  */
 async function compareFiles(
   original: string,

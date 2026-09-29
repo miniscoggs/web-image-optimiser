@@ -3,6 +3,7 @@ import { ENCODE_METHODS } from "../encode/types.js";
 import { INSPECT_FORMATS } from "../inspect/types.js";
 import { METRICS_VERDICTS } from "../metrics/types.js";
 import { PIPELINE_MODES } from "../pipeline/types.js";
+import { IMAGE_RIGHTS_FIELDS } from "../rights/types.js";
 import { STRIP_REMOVED_KINDS } from "../strip/types.js";
 import { ERROR_CODES, WARNING_CODES } from "./codes.js";
 import SCHEMA_VERSION from "./version.js";
@@ -45,6 +46,34 @@ const warningSchema = z
   })
   .meta({ id: "Warning" });
 
+const text = z.string().min(1);
+const texts = z.array(text).min(1);
+const webUrl = z.url({ protocol: /^https?$/ });
+
+/**
+ * The copyright, licence and AI-origin fields an output carries in its XMP.
+ */
+const rightsSchema = z
+  .object({
+    creator: texts.optional().describe("Creator (dc:creator), in order"),
+    credit: text.optional().describe("Credit Line (photoshop:Credit)"),
+    copyright: z
+      .array(z.object({ lang: z.string(), value: text }))
+      .min(1)
+      .optional()
+      .describe(
+        "Copyright Notice (dc:rights), every language alternative, x-default first"
+      ),
+    webStatement: text
+      .optional()
+      .describe("Web Statement of Rights (xmpRights:WebStatement)"),
+    licensorUrl: texts.optional().describe("Licensor URL (plus:LicensorURL)"),
+    digitalSourceType: text
+      .optional()
+      .describe("Digital Source Type (Iptc4xmpExt:DigitalSourceType)"),
+  })
+  .meta({ id: "Rights" });
+
 /**
  * One file written, or that would be in a dry run.
  */
@@ -57,6 +86,10 @@ const outputSchema = z
       ),
     path: z.string(),
     format: z.enum(INSPECT_FORMATS),
+    width: count.describe(
+      "The output's width in pixels: the input's, or maxWidth when the input was wider"
+    ),
+    height: count.describe("The output's height in pixels"),
     method: z
       .enum(OUTPUT_METHODS)
       .describe(
@@ -81,7 +114,19 @@ const outputSchema = z
     verdict: z.enum(METRICS_VERDICTS),
     strippedMetadata: z
       .array(z.enum(STRIP_REMOVED_KINDS))
-      .describe("The kinds of metadata the input had that this output doesn't"),
+      .describe(
+        "The kinds of metadata the input had, each dropped or rewritten; xmp can sit beside rights, which are written anew"
+      ),
+    rights: rightsSchema
+      .optional()
+      .describe("The rights fields this output carries; absent when none"),
+    rightsAdded: z
+      .array(z.enum(IMAGE_RIGHTS_FIELDS))
+      .min(1)
+      .optional()
+      .describe(
+        "Which of those fields came from the options rather than the input"
+      ),
   })
   .meta({ id: "Output" });
 
@@ -110,7 +155,7 @@ const fileResultSchema = z
     width: count
       .optional()
       .describe(
-        "The image's displayed width in pixels, after orientation, once inspected; every output has the same size"
+        "The image's displayed width in pixels, after orientation, once inspected; each output has its own width and height"
       ),
     height: count
       .optional()
@@ -122,12 +167,6 @@ const fileResultSchema = z
     error: errorSchema
       .optional()
       .describe("Why the file failed, when status is failed"),
-    markup: z
-      .string()
-      .optional()
-      .describe(
-        "Only with the CLI's --markup: HTML that shows the image, a <picture> element or an <img>"
-      ),
   })
   .meta({ id: "FileResult" });
 
@@ -157,6 +196,26 @@ const runOptionsSchema = z
     inPlace: z.boolean(),
     overwrite: z.boolean(),
     dryRun: z.boolean(),
+    maxWidth: z
+      .int()
+      .positive()
+      .optional()
+      .describe("The widest a raster output may be, when a cap was given"),
+    stripAll: z
+      .boolean()
+      .describe("Whether the rights fields are removed along with the rest"),
+    rights: z
+      .object({
+        creator: text.optional(),
+        credit: text.optional(),
+        copyright: text.optional(),
+        rightsUrl: webUrl.optional(),
+        licensorUrl: webUrl.optional(),
+      })
+      .optional()
+      .describe(
+        "The rights fields to add where a file has none, trimmed, when any was given"
+      ),
     concurrency: z.int().positive(),
   })
   .meta({ id: "RunOptions" });

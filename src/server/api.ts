@@ -55,8 +55,7 @@ const uploadResponseSchema = z.object({
 /**
  * `POST /api/optimise`: the files to run, and the run's mode and target. The response is a
  * server-sent event stream of `PipelineEvent`s, with a `cli` event after each file the copied
- * command would fail or skip, then an `error` event if the run broke. In `suite` mode each file
- * carries the `markup` that `wio --to suite --markup` would print, run in the folder served.
+ * command would fail or skip, then an `error` event if the run broke.
  */
 const optimiseRequestSchema = z.object({
   files: z.array(refSchema).min(1),

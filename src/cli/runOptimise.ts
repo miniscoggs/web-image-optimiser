@@ -1,23 +1,17 @@
 import type { Command } from "commander";
-import { generatePictureMarkup } from "../markup/index.js";
 import { optimiseBatch } from "../pipeline/index.js";
 import type {
   PipelineEvent,
   PipelineFileResult,
   PipelineMode,
+  PipelineRightsOptions,
   PipelineTargetPreset,
 } from "../pipeline/index.js";
 import type { USAGE_ERROR_CODES } from "../schema/index.js";
 import expandInputs from "./expandInputs.js";
-import withHint from "./hints.js";
-import type { CliHints } from "./hints.js";
+import { OPTIMISE_HINTS, withHint } from "./hints.js";
 import renderRun from "./renderRun.js";
 import type { CliIo, CliStream } from "./types.js";
-
-const HINTS: CliHints = {
-  E_OUTPUT_IS_INPUT: "--out-dir <dir> or --in-place",
-  W_OUTPUT_EXISTS: "--overwrite",
-};
 
 const CLEAR_LINE = "\r\u001b[2K";
 
@@ -34,9 +28,10 @@ type OptimiseFlags = {
   dryRun?: boolean;
   json?: boolean;
   ndjson?: boolean;
-  markup?: boolean;
   concurrency?: number;
-};
+  maxWidth?: number;
+  stripAll?: boolean;
+} & PipelineRightsOptions; // the rights flags are named as the pipeline's options
 
 /**
  * Creates an event handler that redraws one progress line on a terminal, and clears it when
@@ -78,10 +73,6 @@ async function runOptimise(
   io: CliIo,
   command: Command
 ) {
-  if (flags.markup === true && flags.to !== "suite") {
-    command.error("error: --markup needs --to suite", { exitCode: 2 });
-  }
-
   const files = await expandInputs(inputs, {
     recursive: flags.recursive ?? false,
     outDir: flags.outDir,
@@ -99,21 +90,13 @@ async function runOptimise(
     command.error(`error: ${code} ${reason}`, { exitCode: 2, code });
   }
 
-  const present = (file: PipelineFileResult): PipelineFileResult => {
-    const markup =
-      flags.markup === true
-        ? generatePictureMarkup(file, { root: flags.outDir })
-        : undefined;
-
-    return {
-      ...file,
-      warnings: file.warnings.map((warning) => withHint(warning, HINTS)),
-      ...(file.error === undefined
-        ? {}
-        : { error: withHint(file.error, HINTS) }),
-      ...(markup === undefined ? {} : { markup }),
-    };
-  };
+  const present = (file: PipelineFileResult): PipelineFileResult => ({
+    ...file,
+    warnings: file.warnings.map((warning) => withHint(warning, OPTIMISE_HINTS)),
+    ...(file.error === undefined
+      ? {}
+      : { error: withHint(file.error, OPTIMISE_HINTS) }),
+  });
   const progress =
     io.progress && flags.ndjson !== true // the events are the progress, and would break into the line
       ? createProgress(io.stderr)
@@ -127,6 +110,15 @@ async function runOptimise(
       inPlace: flags.inPlace,
       overwrite: flags.overwrite,
       dryRun: flags.dryRun,
+      maxWidth: flags.maxWidth,
+      stripAll: flags.stripAll,
+      rights: {
+        creator: flags.creator,
+        credit: flags.credit,
+        copyright: flags.copyright,
+        rightsUrl: flags.rightsUrl,
+        licensorUrl: flags.licensorUrl,
+      },
     },
     {
       signal: io.signal,

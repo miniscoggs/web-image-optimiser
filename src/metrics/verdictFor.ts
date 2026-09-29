@@ -17,14 +17,6 @@ const VERDICT_BANDS: readonly (readonly [number, MetricsVerdict])[] = [
  *
  * @param score - An SSIMULACRA 2 score, 100 or lower.
  * @returns The verdict for the band the score falls in.
- *
- * @example
- * ```ts
- * import { verdictFor } from "web-image-optimiser";
- *
- * verdictFor(90); // "visually-lossless"
- * verdictFor(72.5); // "high"
- * ```
  */
 function verdictFor(score: number): MetricsVerdict {
   const band = VERDICT_BANDS.find(([lowest]) => score >= lowest);

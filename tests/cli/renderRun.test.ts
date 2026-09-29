@@ -12,6 +12,7 @@ const RESULT: PipelineRunResult = {
     inPlace: false,
     overwrite: false,
     dryRun: true,
+    stripAll: false,
     concurrency: 2,
   },
   files: [
@@ -26,6 +27,8 @@ const RESULT: PipelineRunResult = {
           role: "avif",
           path: "hero.avif",
           format: "avif",
+          width: 1600,
+          height: 1067,
           method: "lossy",
           quality: 62,
           bytes: 48_200,
@@ -38,6 +41,8 @@ const RESULT: PipelineRunResult = {
           role: "fallback",
           path: "hero.jpg",
           format: "jpeg",
+          width: 1600,
+          height: 1067,
           method: "strip",
           bytes: 240_000,
           saving: 0.04,
@@ -46,8 +51,10 @@ const RESULT: PipelineRunResult = {
           strippedMetadata: ["exif"],
         },
       ],
-      warnings: [{ code: "W_ICC_KEPT", message: "The profile was kept" }],
-      markup: "<picture></picture>",
+      warnings: [
+        { code: "W_ICC_KEPT", message: "The profile was kept" },
+        { code: "W_NO_RIGHTS", message: "The image has no rights" },
+      ],
     },
     {
       input: "anim.webp",
@@ -74,7 +81,7 @@ const RESULT: PipelineRunResult = {
 };
 
 describe("renderRun", () => {
-  it("renders a table, a summary, the messages and the markup", () => {
+  it("renders a table, a summary and the messages", () => {
     expect(renderRun(RESULT, false)).toBe(
       [
         "File       Output    Format  Quality               Size  Saving  Score  Verdict            Notes",
@@ -86,11 +93,21 @@ describe("renderRun", () => {
         "",
         "hero.jpg: W_ICC_KEPT The profile was kept",
         "anim.webp: E_ANIMATED Animated images are not supported",
-        "",
-        "<!-- hero.jpg -->",
-        "<picture></picture>",
+        "W_NO_RIGHTS 1 file has no copyright or licence metadata (--creator, --credit, --copyright, --rights-url, --licensor-url or --strip-all)",
         "",
       ].join("\n")
+    );
+  });
+
+  it("counts W_NO_RIGHTS once for the run, in place of each file's", () => {
+    const files = RESULT.files
+      .slice(0, 1)
+      .flatMap((hero) => [hero, { ...hero, input: "hero-2.jpg" }]);
+    const text = renderRun({ ...RESULT, files }, false);
+
+    expect(text.match(/W_NO_RIGHTS/g)).toHaveLength(1);
+    expect(text).toContain(
+      "\nW_NO_RIGHTS 2 files have no copyright or licence metadata ("
     );
   });
 

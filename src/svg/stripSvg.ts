@@ -16,14 +16,6 @@ const METADATA_PLUGINS = [
  * @param source - The SVG's bytes, in UTF-8.
  * @returns The stripped SVG and what was removed, or the input itself with nothing removed.
  * @throws When the SVG isn't well-formed XML.
- *
- * @example
- * ```ts
- * import { readFile } from "node:fs/promises";
- * import { stripSvg } from "web-image-optimiser";
- *
- * const { bytes, removed } = await stripSvg(await readFile("drawing.svg")); // ["comment", "editor"]
- * ```
  */
 async function stripSvg(source: Buffer): Promise<StripResult> {
   const scan = await inspectSvg(source);

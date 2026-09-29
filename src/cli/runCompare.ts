@@ -1,5 +1,5 @@
 import { compareFiles } from "../compare/index.js";
-import withHint from "./hints.js";
+import { withHint } from "./hints.js";
 import type { CliHints } from "./hints.js";
 import renderCompare from "./renderCompare.js";
 import type { CliIo } from "./types.js";

@@ -5,6 +5,7 @@ import createPipeline from "./createPipeline.js";
 import type { EncodeMethod, EncodeResult } from "./types.js";
 
 const WEBP_SMART_DEBLOCK = true; // from the encoder benchmark in docs/encoding.md
+const WEBP_LOSSLESS_EFFORT = 100; // lossless libwebp reads quality as compression effort, sharp's default 80
 
 /**
  * Encodes decoded pixels as WebP at the slowest, smallest effort.
@@ -53,12 +54,16 @@ function webpLossy(source: MetricsImage, quality: number) {
 }
 
 /**
- * Encodes decoded pixels as lossless WebP.
+ * Encodes decoded pixels as lossless WebP, compressing as hard as libwebp can.
  *
  * @param source - The decoded image, from `decodeForScoring`.
  */
 function webpLossless(source: MetricsImage) {
-  return encodeWebp(source, { lossless: true }, "lossless");
+  return encodeWebp(
+    source,
+    { lossless: true, quality: WEBP_LOSSLESS_EFFORT },
+    "lossless"
+  );
 }
 
 /**
@@ -71,7 +76,7 @@ function webpLossless(source: MetricsImage) {
 function webpNearLossless(source: MetricsImage, quality: number) {
   return encodeWebp(
     source,
-    { nearLossless: true, quality },
+    { nearLossless: true, quality }, // libvips uses this one quality as both the level and the effort
     "near-lossless",
     quality
   );

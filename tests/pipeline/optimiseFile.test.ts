@@ -163,7 +163,7 @@ describe("optimiseFile", () => {
         status: "optimised",
         outputs: [{ role: "same", format: "avif", method: "strip" }],
       });
-      expect(warningCodes(inPlace)).toEqual(["W_NOT_CONVERTED"]);
+      expect(warningCodes(inPlace)).toEqual(["W_NOT_CONVERTED", "W_NO_RIGHTS"]);
       expect((await readFile(input)).length).toBeLessThan(before.length);
     });
 
@@ -207,6 +207,7 @@ describe("optimiseFile", () => {
       expect(warningCodes(result)).toEqual([
         "W_TOO_SMALL_TO_SCORE",
         "W_NOT_CONVERTED",
+        "W_NO_RIGHTS",
       ]);
       expect(await list()).toEqual(["clean-icon.png"]);
     });
@@ -244,7 +245,10 @@ describe("optimiseFile", () => {
 
       expect(output?.score).toBeLessThan(95);
       expect(output?.bytes).toBeLessThan(result.bytes ?? 0);
-      expect(warningCodes(result)).toEqual(["W_TARGET_NOT_REACHED"]);
+      expect(warningCodes(result)).toEqual([
+        "W_TARGET_NOT_REACHED",
+        "W_NO_RIGHTS",
+      ]);
     });
 
     it("warns with W_NOTICEABLE when an output scores below 80", async () => {
@@ -257,7 +261,7 @@ describe("optimiseFile", () => {
       expect(result.outputs[0]?.score).toBeGreaterThanOrEqual(70);
       expect(result.outputs[0]?.score).toBeLessThan(80);
       expect(result.outputs[0]?.verdict).toBe("high");
-      expect(warningCodes(result)).toEqual(["W_NOTICEABLE"]);
+      expect(warningCodes(result)).toEqual(["W_NO_RIGHTS", "W_NOTICEABLE"]);
     });
 
     it("rejects an unknown mode or target", async () => {

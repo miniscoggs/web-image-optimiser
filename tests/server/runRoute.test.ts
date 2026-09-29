@@ -1,12 +1,8 @@
-import { copyFile, readFile, readdir } from "node:fs/promises";
+import { copyFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eventSchema } from "../../src/schema/contract.js";
-import {
-  apiErrorSchema,
-  cliEventSchema,
-  uploadResponseSchema,
-} from "../../src/server/api.js";
+import { apiErrorSchema, cliEventSchema } from "../../src/server/api.js";
 import { fixturePath } from "../fixtureManifest.js";
 import { readEvents, readRun, startUiSession } from "./uiSession.js";
 import type { UiSession } from "./uiSession.js";
@@ -71,52 +67,6 @@ describe("POST /api/optimise", () => {
       expect((await session.image(output.path)).status).toBe(200);
     }
     expect(await readdir(session.outside, { recursive: true })).toEqual(before);
-  });
-
-  it("adds the markup a suite run would print, with each output beside its input", async () => {
-    const markupSession = await startUiSession(["photos/gradient-16bit.png"]);
-    const form = new FormData();
-    const bytes = await readFile(fixturePath("icon-6x6.png"));
-
-    form.append("file", new Blob([bytes]), "icon.png");
-    try {
-      const upload = await markupSession.api("/api/upload", {
-        method: "POST",
-        body: form,
-      });
-      const [uploaded] = uploadResponseSchema.parse(await upload.json()).files;
-      const run = async (to: string) => {
-        const response = await markupSession.post("/api/optimise", {
-          files: ["root/photos/gradient-16bit.png", uploaded?.ref],
-          to,
-        });
-        const { events } = await readRun(response);
-
-        return events
-          .flatMap((event) => (event.type === "file-done" ? [event] : []))
-          .toSorted((first, second) => first.index - second.index)
-          .map((event) => event.file);
-      };
-      const urlsOf = (markup: string | undefined) =>
-        [...(markup ?? "").matchAll(/(?:src|srcset)="([^"]+)"/g)].map(
-          (match) => match[1]
-        );
-      const [photo, icon] = await run("suite");
-      const namesOf = (file: typeof photo) =>
-        file?.outputs.map((output) => path.posix.basename(output.path));
-
-      expect(photo?.outputs.length).toBeGreaterThan(1);
-      expect(urlsOf(photo?.markup)).toEqual(
-        namesOf(photo)?.map((name) => `photos/${name}`)
-      );
-      expect(photo?.markup).toMatch(/^<picture>/);
-      expect(urlsOf(icon?.markup)).toEqual(namesOf(icon));
-      expect(
-        (await run("webp")).map((file) => file.markup === undefined)
-      ).toEqual([true, true]);
-    } finally {
-      await markupSession.close();
-    }
   });
 
   it("names files by ref in its messages", async () => {

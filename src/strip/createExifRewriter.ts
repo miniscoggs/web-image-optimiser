@@ -1,4 +1,5 @@
-import hasGps, { EXIF_HEADER } from "../inspect/hasGps.js";
+import { EXIF_HEADER } from "../inspect/exifIfd0.js";
+import hasGps from "../inspect/hasGps.js";
 import type { StripRemovedKind } from "./types.js";
 
 const ORIENTATION_TAG = 0x0112;

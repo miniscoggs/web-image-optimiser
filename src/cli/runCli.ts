@@ -2,12 +2,19 @@ import path from "node:path";
 import {
   Command,
   CommanderError,
+  Help,
   InvalidArgumentError,
   Option,
 } from "commander";
-import { PIPELINE_MODES, PIPELINE_TARGET_PRESETS } from "../pipeline/index.js";
+import {
+  PIPELINE_MODES,
+  PIPELINE_RIGHTS_OPTIONS,
+  PIPELINE_TARGET_PRESETS,
+  isWebUrl,
+} from "../pipeline/index.js";
 import type { PipelineTargetPreset } from "../pipeline/index.js";
 import toolVersions from "../pipeline/toolVersions.js";
+import { METADATA_SUMMARY } from "../rights/index.js";
 import runCompare from "./runCompare.js";
 import type { CompareFlags } from "./runCompare.js";
 import runOptimise from "./runOptimise.js";
@@ -21,46 +28,158 @@ const EXIT_USAGE = 2;
 const DOCS_URL =
   "https://github.com/miniscoggs/web-image-optimiser/blob/main/docs/cli.md";
 
-const OPTIMISE_HELP = `
-Targets are SSIMULACRA 2 scores: visually-lossless (90), excellent (85), high (80) or
-web (70), or any number from 0 to 100. SVGs always use 90.
+const HELP_WIDTH = 80; // fixed, so the help reads the same in any terminal and when piped
 
-Without --out-dir, an output that would replace its input fails with E_OUTPUT_IS_INPUT unless
---in-place is given: every file in same mode, a file already in the format asked for, such as
-a WebP in webp mode, and most files in suite.
+const EXAMPLE_WIDTH = 41; // the longest example command that shares a line with its text
+
+/**
+ * Wraps help text at {@link HELP_WIDTH} columns, breaking at spaces, with every line after the
+ * first indented as far as the text on the first.
+ *
+ * @param text - The text, on one line.
+ * @param prefix - What the first line starts with, such as an indented label.
+ */
+function wrapHelp(text: string, prefix = "  ") {
+  const indent = " ".repeat(prefix.length);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of text.split(" ")) {
+    const start = lines.length === 0 ? prefix : indent;
+
+    if (line !== "" && `${start}${line} ${word}`.length > HELP_WIDTH) {
+      lines.push(`${start}${line}`);
+      line = word;
+    } else {
+      line = line === "" ? word : `${line} ${word}`;
+    }
+  }
+  lines.push(`${lines.length === 0 ? prefix : indent}${line}`);
+  return lines.join("\n");
+}
+
+/**
+ * Formats a help list: each label padded to one column, beside its text wrapped with
+ * {@link wrapHelp}. A label wider than the column gets a line of its own, with its text below.
+ *
+ * @param items - Each label and its text, which may be empty.
+ * @param labelWidth - The label column's width (default: the widest label's).
+ */
+function helpList(
+  items: [label: string, text: string][],
+  labelWidth = Math.max(...items.map(([label]) => label.length))
+) {
+  const indent = " ".repeat(labelWidth + 4);
+
+  return items
+    .map(([label, text]) => {
+      if (text === "") {
+        return `  ${label}`;
+      }
+      return label.length > labelWidth
+        ? `  ${label}\n${wrapHelp(text, indent)}`
+        : wrapHelp(text, `  ${label.padEnd(labelWidth)}  `);
+    })
+    .join("\n");
+}
+
+/**
+ * Returns the optimise command's help after its options, with the metadata wording the desktop
+ * app shares.
+ */
+function optimiseHelp() {
+  const modes = helpList([
+    ["webp", "a WebP (the default)"],
+    ["avif", "an AVIF"],
+    [
+      "same",
+      "each file in its own format, re-encoded or only stripped, whichever is smaller",
+    ],
+    [
+      "suite",
+      "an AVIF, a WebP and a JPEG or PNG fallback, each kept only when it's smaller than the one below it",
+    ],
+  ]);
+  const metadata = helpList([
+    ["Kept", METADATA_SUMMARY.kept],
+    ["Removed", METADATA_SUMMARY.removed],
+    ["SVGs", METADATA_SUMMARY.svg],
+  ]);
+  const examples = helpList(
+    [
+      ["wio photos", "WebP beside each image in photos/"],
+      [
+        "wio photos --recursive --out-dir web",
+        "subfolders too, mirrored into web/",
+      ],
+      ['wio "src/**/*.png" --to same --in-place', "shrink PNGs where they are"],
+      ["wio hero.jpg --to suite --out-dir web", "AVIF, WebP and a fallback"],
+      [
+        "wio photos --max-width 1600 --out-dir web",
+        "photos cut down to 1600 px wide",
+      ],
+      [
+        'wio photos --copyright "Copyright 2026 Example Ltd" --out-dir web',
+        "add a copyright where there's none",
+      ],
+      ["wio photos --dry-run --json", "what would be written, as JSON"],
+      ["wio compare photo.png photo.webp --diff diff.png", ""],
+      ["wio ui photos", "compare the outputs in the browser"],
+    ],
+    EXAMPLE_WIDTH
+  );
+  const exitCodes = helpList([
+    ["0", "no file failed (skipped and kept-original files are not failures)"],
+    ["1", "at least one file failed"],
+    ["2", "usage error, including E_NO_INPUTS"],
+    ["130", "stopped by Ctrl+C (143 for SIGTERM)"],
+    ["141", "stopped because its output closed, such as a pipe into head"],
+  ]);
+
+  return `
+Modes:
+${modes}
+${wrapHelp("webp and avif write their best even below the target (W_TARGET_NOT_REACHED); same and suite write only outputs that reach it. SVGs are always optimised as SVG.")}
+
+Targets:
+${wrapHelp("SSIMULACRA 2 scores: visually-lossless (90), excellent (85), high (80) or web (70), or any number from 0 to 100. SVGs always use 90.")}
+
+Outputs:
+${wrapHelp("Each output is named after its input, with its format's extension, beside the input or in --out-dir. None is larger than its input: when nothing in the format asked for is smaller, the input is written in its own format, usually only stripped (W_NOT_CONVERTED), or left alone (kept-original). An existing file is skipped (W_OUTPUT_EXISTS) unless --overwrite is given.")}
+
+${wrapHelp("Without --out-dir, an output that would replace its input fails with E_OUTPUT_IS_INPUT unless --in-place is given: every file in same mode, a file already in the format asked for, such as a WebP in webp mode, and most files in suite.")}
+
+Inputs:
+${wrapHelp('Quote glob patterns, such as "src/**/*.png", so wio expands them the same way on every shell. Folders give their top-level images, and their subfolders too with --recursive.')}
+
+Metadata:
+${metadata}
+${wrapHelp("--strip-all removes the kept fields too; --creator, --credit, --copyright, --rights-url and --licensor-url add fields a file lacks.")}
 
 Examples:
-  wio photos                                WebP beside each image in photos/
-  wio photos --recursive --out-dir web      the same for every subfolder, mirrored into web/
-  wio "src/**/*.png" --to same --in-place   shrink PNGs where they are
-  wio hero.jpg --to suite --out-dir web --markup
-                                            AVIF, WebP and a fallback, with <picture> markup
-  wio photos --dry-run --json               what would be written, as JSON
-  wio compare photo.png photo.webp --diff diff.png
-  wio ui photos                             compare the outputs in the browser
+${examples}
 
 Exit codes:
-  0    no file failed (skipped and kept-original files are not failures)
-  1    at least one file failed
-  2    usage error, including E_NO_INPUTS
-  130  stopped by Ctrl+C (143 for SIGTERM)
+${exitCodes}
 
 More: ${DOCS_URL}`;
+}
 
-const COMPARE_HELP = `
-Exit codes: 0 when compared, 1 when the comparison failed, 2 for a usage error.`;
+/** Returns the compare command's help after its options. */
+function compareHelp() {
+  return `
+${wrapHelp("Scores run up to 100, for identical pixels. Verdicts: visually-lossless (90+), excellent (85+), very-high (80+), high (70+), noticeable (50+), obvious (below 50). The images must be the same size, and SVGs can't be compared. --diff writes a PNG heat map, hotter where the images differ more.", "")}
 
-const UI_HELP = `
-The UI lists the folder's images, including those in subfolders, takes uploads, and runs them
-with a --to and --target of your choice into a temp folder, then shows each output beside the
-original, zoomed together, in a wipe or with a diff overlay. A raster output's quality slider
-re-encodes it live. Nothing in the folder changes until an output's Write saves it beside its
-original, which, like the command line, replaces a file only when asked. It copies the wio
-command that writes the whole run. It listens on 127.0.0.1 only, and the address it prints
-holds a session token that every request needs. It runs until Ctrl+C.
+${wrapHelp("Exit codes: 0 when compared, 1 when the comparison failed, 2 for a usage error.", "")}`;
+}
 
-Exit codes: 1 when the server can't start, 2 for a usage error, and 130 once stopped by Ctrl+C
-(143 for SIGTERM).`;
+/** Returns the ui command's help after its options. */
+function uiHelp() {
+  return `
+${wrapHelp("The UI lists the folder's images, including those in subfolders, takes uploads, and runs them with a --to and --target of your choice into a temp folder, then shows each output beside the original, zoomed together, in a wipe or with a diff overlay. A raster output's quality slider re-encodes it live. Nothing in the folder changes until an output's Write saves it beside its original, which, like the command line, replaces a file only when asked. It copies the wio command that writes the whole run. It listens on 127.0.0.1 only, and the address it prints holds a session token that every request needs. It runs until Ctrl+C.", "")}
+
+${wrapHelp("Exit codes: 1 when the server can't start, 2 for a usage error, and 130 once stopped by Ctrl+C (143 for SIGTERM).", "")}`;
+}
 
 /**
  * Parses `--target`: a preset name, or a score from 0 to 100.
@@ -84,16 +203,44 @@ function parseTarget(value: string): PipelineTargetPreset | number {
 }
 
 /**
- * Parses `--concurrency`: a whole number of at least 1.
+ * Parses `--concurrency` and `--max-width`: a whole number of at least 1.
  *
  * @param value - The flag's value.
  * @throws InvalidArgumentError otherwise.
  */
-function parseConcurrency(value: string) {
+function parseCount(value: string) {
   if (!/^\d+$/.test(value) || Number(value) < 1) {
     throw new InvalidArgumentError("Expected a whole number of at least 1.");
   }
   return Number(value);
+}
+
+/**
+ * Parses `--creator`, `--credit` and `--copyright`: any text but spaces alone.
+ *
+ * @param value - The flag's value.
+ * @throws InvalidArgumentError otherwise.
+ */
+function parseText(value: string) {
+  if (value.trim() === "") {
+    throw new InvalidArgumentError("Expected some text.");
+  }
+  return value;
+}
+
+/**
+ * Parses `--rights-url` and `--licensor-url`: an absolute `http:` or `https:` URL.
+ *
+ * @param value - The flag's value.
+ * @throws InvalidArgumentError otherwise.
+ */
+function parseUrl(value: string) {
+  if (!isWebUrl(value.trim())) {
+    throw new InvalidArgumentError(
+      "Expected an http: or https: URL, such as https://example.com/licence."
+    );
+  }
+  return value;
 }
 
 /**
@@ -137,37 +284,84 @@ function defineOptimise(
   finish: (exitCode: number) => void
 ) {
   command
-    .argument("[inputs...]", "image files, folders and glob patterns")
+    .argument(
+      "[inputs...]",
+      "image files, folders and glob patterns (see Inputs)"
+    )
     .addOption(
-      new Option("--to <mode>", "what to write")
+      new Option(
+        "--to <mode>",
+        'what to write: webp, avif, same or suite (see Modes; default: "webp")'
+      )
         .choices(PIPELINE_MODES)
         .default("webp")
     )
     .option(
       "--target <preset|number>",
-      "the lowest quality an output may have",
+      'the lowest quality an output may have (see Targets; default: "high")',
       parseTarget,
       "high"
     )
     .option(
+      "--max-width <px>",
+      "shrink wider images to this width first; narrower images and SVGs stay as they are",
+      parseCount
+    )
+    .option(
       "--out-dir <dir>",
-      "write into this folder, mirroring the subfolders of folders and globs"
+      "write here instead of beside each input, mirroring the subfolders of folders and globs"
     )
     .option("--in-place", "let an output replace its own input")
-    .option("--overwrite", "let an output replace an existing file")
-    .option("--recursive", "include the subfolders of folders")
-    .option("--dry-run", "work everything out but write nothing")
+    .option("--overwrite", "let an output replace another existing file")
+    .option("--recursive", "include the subfolders of folder inputs")
+    .option("--dry-run", "work everything out, but write nothing")
     .addOption(
-      new Option("--json", "print one RunResult as JSON").conflicts("ndjson")
+      new Option(
+        "--json",
+        "print one RunResult as JSON on stdout when the run ends"
+      ).conflicts("ndjson")
     )
-    .option("--ndjson", "print one JSON event per line as the run goes")
-    .option("--markup", "print <picture> markup for each file (suite only)")
+    .option(
+      "--ndjson",
+      "print one JSON event per line on stdout as the run goes"
+    )
     .option(
       "--concurrency <n>",
-      "how many files to optimise at once (default: one fewer than the CPUs)",
-      parseConcurrency
+      "files to optimise at once (default: one fewer than the CPUs, at most one per 4 GiB of memory)",
+      parseCount
     )
-    .addHelpText("after", OPTIMISE_HELP)
+    .addOption(
+      new Option(
+        "--strip-all",
+        "remove all metadata, the copyright and licence fields too"
+      ).conflicts([...PIPELINE_RIGHTS_OPTIONS]) // commander names each rights flag's value after its option key
+    )
+    .option(
+      "--creator <name>",
+      "add a Creator where a file has none",
+      parseText
+    )
+    .option(
+      "--credit <text>",
+      "add a Credit Line where a file has none",
+      parseText
+    )
+    .option(
+      "--copyright <text>",
+      "add a Copyright Notice where a file has none",
+      parseText
+    )
+    .option(
+      "--rights-url <url>",
+      "add a Web Statement of Rights (the licence's URL) where a file has none",
+      parseUrl
+    )
+    .option(
+      "--licensor-url <url>",
+      "add a Licensor URL (where to license the image) where a file has none",
+      parseUrl
+    )
+    .addHelpText("after", optimiseHelp)
     .action(async (inputs: string[], flags: OptimiseFlags, self: Command) => {
       finish(await runOptimise(inputs, flags, io, self));
     });
@@ -185,7 +379,7 @@ function createProgram(io: CliIo, finish: (exitCode: number) => void) {
 
   program
     .description(
-      "Strips images' metadata and writes the smallest PNG, JPEG, WebP, AVIF or SVG that stays above an SSIMULACRA 2 quality target."
+      "Strips images' metadata, keeping copyright and licence fields, and writes the smallest PNG, JPEG, WebP, AVIF or SVG that stays above an SSIMULACRA 2 quality target."
     )
     .usage("[optimise] <inputs...> [options]")
     .version(toolVersions().version)
@@ -195,6 +389,12 @@ function createProgram(io: CliIo, finish: (exitCode: number) => void) {
       writeErr: (text) => io.stderr.write(text),
     })
     .showHelpAfterError("(run wio --help for usage)")
+    .configureHelp({
+      helpWidth: HELP_WIDTH,
+      optionDescription: (option) => option.description, // each states its own default and choices
+      subcommandTerm: (command) =>
+        new Help().subcommandTerm(command).replace(" [options]", ""), // narrows the option column, leaving it room to wrap
+    })
     .enablePositionalOptions(); // so compare's --json isn't taken as the program's
   defineOptimise(program, io, finish);
   defineOptimise(
@@ -219,7 +419,7 @@ function createProgram(io: CliIo, finish: (exitCode: number) => void) {
     )
     .option("--overwrite", "let the diff map replace an existing file")
     .option("--json", "print one CompareResult as JSON")
-    .addHelpText("after", COMPARE_HELP)
+    .addHelpText("after", compareHelp)
     .action(
       async (original: string, candidate: string, flags: CompareFlags) => {
         finish(await runCompare(original, candidate, flags, io));
@@ -237,7 +437,7 @@ function createProgram(io: CliIo, finish: (exitCode: number) => void) {
       parsePort
     )
     .option("--no-open", "print the address without opening the browser")
-    .addHelpText("after", UI_HELP)
+    .addHelpText("after", uiHelp)
     .action(
       async (folder: string | undefined, flags: UiFlags, self: Command) => {
         finish(await runUi(folder, flags, io, self));

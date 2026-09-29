@@ -5,7 +5,7 @@
     "same": {
       "gradient.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -17,7 +17,7 @@
       },
       "gradient-16bit.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -29,7 +29,7 @@
       },
       "screenshot.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -42,7 +42,7 @@
       },
       "logo-alpha.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -55,7 +55,7 @@
       },
       "semi-transparent.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -67,7 +67,7 @@
       },
       "icon-6x6.png": {
         "status": "optimised",
-        "warnings": ["W_TOO_SMALL_TO_SCORE"],
+        "warnings": ["W_TOO_SMALL_TO_SCORE", "W_NO_RIGHTS"],
         "outputs": [
           { "role": "same", "format": "png", "method": "strip", "bytes": 95 }
         ]
@@ -81,7 +81,7 @@
             "format": "png",
             "method": "lossy",
             "quality": 69,
-            "bytes": 29845
+            "bytes": 30241
           }
         ]
       },
@@ -94,13 +94,13 @@
             "format": "jpeg",
             "method": "lossy",
             "quality": 80,
-            "bytes": 19257
+            "bytes": 19652
           }
         ]
       },
       "display-p3.jpg": {
         "status": "kept-original",
-        "warnings": ["W_ICC_KEPT"],
+        "warnings": ["W_NO_RIGHTS", "W_ICC_KEPT"],
         "outputs": []
       },
       "lossy.webp": {
@@ -112,7 +112,7 @@
             "format": "webp",
             "method": "lossy",
             "quality": 79,
-            "bytes": 22038
+            "bytes": 22426
           }
         ]
       },
@@ -120,12 +120,7 @@
         "status": "optimised",
         "warnings": [],
         "outputs": [
-          {
-            "role": "same",
-            "format": "webp",
-            "method": "lossless",
-            "bytes": 2810
-          }
+          { "role": "same", "format": "webp", "method": "strip", "bytes": 3198 }
         ]
       },
       "animated.webp": {
@@ -136,7 +131,7 @@
       },
       "exif.avif": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -156,7 +151,7 @@
             "format": "avif",
             "method": "lossy",
             "quality": 59,
-            "bytes": 15530
+            "bytes": 15978
           }
         ]
       },
@@ -190,7 +185,7 @@
             "format": "jpeg",
             "method": "lossy",
             "quality": 83,
-            "bytes": 116285
+            "bytes": 116818
           }
         ]
       },
@@ -203,13 +198,13 @@
             "format": "jpeg",
             "method": "lossy",
             "quality": 84,
-            "bytes": 245839
+            "bytes": 246372
           }
         ]
       },
       "photo-rhino.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -222,7 +217,7 @@
       },
       "photo-sunset.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -232,37 +227,49 @@
             "bytes": 201051
           }
         ]
+      },
+      "rights.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 77,
+            "bytes": 7447
+          }
+        ]
       }
     },
     "webp": {
       "gradient.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
             "format": "webp",
             "method": "lossless",
-            "bytes": 1230
+            "bytes": 152
           }
         ]
       },
       "gradient-16bit.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
             "format": "webp",
-            "method": "near-lossless",
-            "quality": 60,
-            "bytes": 15942
+            "method": "lossless",
+            "bytes": 710
           }
         ]
       },
       "screenshot.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
@@ -275,7 +282,7 @@
       },
       "logo-alpha.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
@@ -288,7 +295,7 @@
       },
       "semi-transparent.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
@@ -301,13 +308,13 @@
       },
       "icon-6x6.png": {
         "status": "optimised",
-        "warnings": ["W_TOO_SMALL_TO_SCORE"],
+        "warnings": ["W_TOO_SMALL_TO_SCORE", "W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
             "format": "webp",
             "method": "lossless",
-            "bytes": 72
+            "bytes": 54
           }
         ]
       },
@@ -320,7 +327,7 @@
             "format": "webp",
             "method": "lossy",
             "quality": 88,
-            "bytes": 19094
+            "bytes": 19482
           }
         ]
       },
@@ -333,13 +340,13 @@
             "format": "webp",
             "method": "lossy",
             "quality": 87,
-            "bytes": 20840
+            "bytes": 21228
           }
         ]
       },
       "display-p3.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
@@ -359,7 +366,7 @@
             "format": "webp",
             "method": "lossy",
             "quality": 79,
-            "bytes": 22038
+            "bytes": 22426
           }
         ]
       },
@@ -367,12 +374,7 @@
         "status": "optimised",
         "warnings": [],
         "outputs": [
-          {
-            "role": "webp",
-            "format": "webp",
-            "method": "lossless",
-            "bytes": 2810
-          }
+          { "role": "webp", "format": "webp", "method": "strip", "bytes": 3198 }
         ]
       },
       "animated.webp": {
@@ -383,7 +385,7 @@
       },
       "exif.avif": {
         "status": "optimised",
-        "warnings": ["W_NOT_CONVERTED"],
+        "warnings": ["W_NOT_CONVERTED", "W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "same",
@@ -401,7 +403,7 @@
             "role": "same",
             "format": "avif",
             "method": "strip",
-            "bytes": 16482
+            "bytes": 16930
           }
         ]
       },
@@ -435,7 +437,7 @@
             "format": "webp",
             "method": "lossy",
             "quality": 89,
-            "bytes": 126568
+            "bytes": 127094
           }
         ]
       },
@@ -448,13 +450,13 @@
             "format": "webp",
             "method": "lossy",
             "quality": 85,
-            "bytes": 234186
+            "bytes": 234712
           }
         ]
       },
       "photo-rhino.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
@@ -467,7 +469,7 @@
       },
       "photo-sunset.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
@@ -477,12 +479,25 @@
             "bytes": 197586
           }
         ]
+      },
+      "rights.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 86,
+            "bytes": 7460
+          }
+        ]
       }
     },
     "avif": {
       "gradient.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -495,7 +510,7 @@
       },
       "gradient-16bit.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -508,7 +523,7 @@
       },
       "screenshot.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -521,7 +536,7 @@
       },
       "logo-alpha.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -534,7 +549,7 @@
       },
       "semi-transparent.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -547,7 +562,7 @@
       },
       "icon-6x6.png": {
         "status": "optimised",
-        "warnings": ["W_TOO_SMALL_TO_SCORE", "W_NOT_CONVERTED"],
+        "warnings": ["W_TOO_SMALL_TO_SCORE", "W_NOT_CONVERTED", "W_NO_RIGHTS"],
         "outputs": [
           { "role": "same", "format": "png", "method": "strip", "bytes": 95 }
         ]
@@ -561,7 +576,7 @@
             "format": "avif",
             "method": "lossy",
             "quality": 71,
-            "bytes": 15223
+            "bytes": 15671
           }
         ]
       },
@@ -574,13 +589,13 @@
             "format": "avif",
             "method": "lossy",
             "quality": 64,
-            "bytes": 15700
+            "bytes": 16148
           }
         ]
       },
       "display-p3.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -599,7 +614,7 @@
             "role": "same",
             "format": "webp",
             "method": "strip",
-            "bytes": 22822
+            "bytes": 23192
           }
         ]
       },
@@ -612,7 +627,7 @@
             "format": "avif",
             "method": "lossy",
             "quality": 20,
-            "bytes": 1007
+            "bytes": 1455
           }
         ]
       },
@@ -624,7 +639,7 @@
       },
       "exif.avif": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -644,7 +659,7 @@
             "format": "avif",
             "method": "lossy",
             "quality": 59,
-            "bytes": 15530
+            "bytes": 15978
           }
         ]
       },
@@ -678,7 +693,7 @@
             "format": "avif",
             "method": "lossy",
             "quality": 66,
-            "bytes": 75307
+            "bytes": 75893
           }
         ]
       },
@@ -691,13 +706,13 @@
             "format": "avif",
             "method": "lossy",
             "quality": 64,
-            "bytes": 157015
+            "bytes": 157601
           }
         ]
       },
       "photo-rhino.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -710,7 +725,7 @@
       },
       "photo-sunset.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -720,10 +735,8 @@
             "bytes": 140489
           }
         ]
-      }
-    },
-    "suite": {
-      "gradient.png": {
+      },
+      "rights.jpg": {
         "status": "optimised",
         "warnings": [],
         "outputs": [
@@ -731,14 +744,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 22,
-            "bytes": 659
-          },
+            "quality": 62,
+            "bytes": 5813
+          }
+        ]
+      }
+    },
+    "suite": {
+      "gradient.png": {
+        "status": "optimised",
+        "warnings": ["W_NO_RIGHTS"],
+        "outputs": [
           {
             "role": "webp",
             "format": "webp",
             "method": "lossless",
-            "bytes": 1230
+            "bytes": 152
           },
           {
             "role": "fallback",
@@ -750,21 +771,13 @@
       },
       "gradient-16bit.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
-          {
-            "role": "avif",
-            "format": "avif",
-            "method": "lossy",
-            "quality": 87,
-            "bytes": 14973
-          },
           {
             "role": "webp",
             "format": "webp",
-            "method": "near-lossless",
-            "quality": 60,
-            "bytes": 15942
+            "method": "lossless",
+            "bytes": 710
           },
           {
             "role": "fallback",
@@ -776,7 +789,7 @@
       },
       "screenshot.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -803,7 +816,7 @@
       },
       "logo-alpha.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "fallback",
@@ -816,7 +829,7 @@
       },
       "semi-transparent.png": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -842,13 +855,13 @@
       },
       "icon-6x6.png": {
         "status": "optimised",
-        "warnings": ["W_TOO_SMALL_TO_SCORE"],
+        "warnings": ["W_TOO_SMALL_TO_SCORE", "W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "webp",
             "format": "webp",
             "method": "lossless",
-            "bytes": 72
+            "bytes": 54
           },
           {
             "role": "fallback",
@@ -867,21 +880,21 @@
             "format": "avif",
             "method": "lossy",
             "quality": 71,
-            "bytes": 15223
+            "bytes": 15671
           },
           {
             "role": "webp",
             "format": "webp",
             "method": "lossy",
             "quality": 88,
-            "bytes": 19094
+            "bytes": 19482
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
             "quality": 94,
-            "bytes": 23490
+            "bytes": 23885
           }
         ]
       },
@@ -894,20 +907,20 @@
             "format": "avif",
             "method": "lossy",
             "quality": 64,
-            "bytes": 15700
+            "bytes": 16148
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
             "quality": 80,
-            "bytes": 19257
+            "bytes": 19652
           }
         ]
       },
       "display-p3.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -941,7 +954,7 @@
             "format": "webp",
             "method": "lossy",
             "quality": 79,
-            "bytes": 22038
+            "bytes": 22426
           }
         ]
       },
@@ -954,14 +967,14 @@
             "format": "avif",
             "method": "lossy",
             "quality": 20,
-            "bytes": 1007
+            "bytes": 1455
           },
           {
             "role": "fallback",
             "format": "png",
             "method": "lossy",
             "quality": 1,
-            "bytes": 1209
+            "bytes": 1605
           }
         ]
       },
@@ -973,7 +986,7 @@
       },
       "exif.avif": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -993,7 +1006,7 @@
             "format": "avif",
             "method": "lossy",
             "quality": 59,
-            "bytes": 15530
+            "bytes": 15978
           }
         ]
       },
@@ -1027,14 +1040,14 @@
             "format": "avif",
             "method": "lossy",
             "quality": 66,
-            "bytes": 75307
+            "bytes": 75893
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
             "quality": 83,
-            "bytes": 116285
+            "bytes": 116818
           }
         ]
       },
@@ -1047,27 +1060,27 @@
             "format": "avif",
             "method": "lossy",
             "quality": 64,
-            "bytes": 157015
+            "bytes": 157601
           },
           {
             "role": "webp",
             "format": "webp",
             "method": "lossy",
             "quality": 85,
-            "bytes": 234186
+            "bytes": 234712
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
             "quality": 84,
-            "bytes": 245839
+            "bytes": 246372
           }
         ]
       },
       "photo-rhino.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -1094,7 +1107,7 @@
       },
       "photo-sunset.jpg": {
         "status": "optimised",
-        "warnings": [],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
             "role": "avif",
@@ -1116,6 +1129,26 @@
             "method": "lossy",
             "quality": 83,
             "bytes": 201051
+          }
+        ]
+      },
+      "rights.jpg": {
+        "status": "optimised",
+        "warnings": [],
+        "outputs": [
+          {
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 62,
+            "bytes": 5813
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 77,
+            "bytes": 7447
           }
         ]
       }

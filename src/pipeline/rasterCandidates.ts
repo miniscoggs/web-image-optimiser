@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import {
   QUALITY_RANGES,
   avifLossy,
@@ -22,7 +23,10 @@ import type {
   StripRemovedKind,
   StripResult,
 } from "../strip/index.js";
-import type { Candidate } from "./candidate.js";
+import type { RasterCandidate } from "./candidate.js";
+import type { PipelineSettings } from "./resolveSettings.js";
+import { createSourceRights } from "./sourceRights.js";
+import type { SourceRights } from "./sourceRights.js";
 
 const NEAR_LOSSLESS_STEP = 20; // libwebp only tells levels 20 apart, and 100 is lossless
 const NEAR_LOSSLESS_STEPS = [1, 4] as const; // levels 20 to 80
@@ -31,13 +35,15 @@ const NEAR_LOSSLESS_STEPS = [1, 4] as const; // levels 20 to 80
  * A raster input, decoded once, with everything its candidates share.
  */
 type RasterSource = {
-  /** The decoded pixels every candidate starts from and is scored against. */
+  /** The decoded pixels every candidate starts from and is scored against, at the maximum width when the input was wider. */
   image: MetricsImage;
   format: StripFormat;
-  /** The lossless strip of the input, which is `bytes` itself when nothing was removed. */
-  strip: StripResult;
+  /** The lossless strip of the input, which is `bytes` itself when nothing was removed. Absent when the image was resized, since a strip keeps the input's size. */
+  strip: StripResult | undefined;
   /** What a re-encode drops: everything the strip does, plus orientation and any profile. */
   reencodeStripped: StripRemovedKind[];
+  /** The rights its outputs may carry. Candidates hold none until selection writes them in. */
+  rights: SourceRights;
   losslessWebp: boolean;
   scorable: boolean;
   target: number;
@@ -45,21 +51,53 @@ type RasterSource = {
 };
 
 /**
- * Decodes and strips a raster input once, for every candidate to share.
+ * Shrinks decoded pixels to a width, keeping the aspect ratio, with sharp's default Lanczos 3,
+ * which premultiplies alpha.
+ *
+ * @param image - The decoded pixels.
+ * @param width - The new width, smaller than the image's.
+ */
+async function resizeToWidth(
+  image: MetricsImage,
+  width: number
+): Promise<MetricsImage> {
+  const height = Math.max(1, Math.round((image.height * width) / image.width));
+  const raw = {
+    width: image.width,
+    height: image.height,
+    channels: 4,
+  } as const;
+  const data = await sharp(image.data, { raw })
+    .resize(width, height, { fit: "fill" })
+    .raw()
+    .toBuffer();
+
+  return { data, width, height };
+}
+
+/**
+ * Decodes and strips a raster input once, for every candidate to share, shrinking it first when
+ * it is wider than the maximum width, and works out the rights its outputs may carry.
  *
  * @param bytes - The input file.
  * @param info - What `inspect` reported about it.
- * @param target - The target score.
+ * @param settings - The target score, the maximum width and the rights options.
  * @param signal - Aborts the encodes.
  * @throws {@link OptimiserError} `E_DECODE` when the image data can't be decoded.
  */
 async function createRasterSource(
   bytes: Buffer,
   info: InspectResult & { format: StripFormat },
-  target: number,
+  settings: Pick<
+    PipelineSettings,
+    "target" | "maxWidth" | "stripAll" | "rights"
+  >,
   signal: AbortSignal | undefined
 ): Promise<RasterSource> {
-  const image = await readOrFail(() => decodeForScoring(bytes));
+  const { target, maxWidth = Infinity } = settings;
+  const decoded = await readOrFail(() => decodeForScoring(bytes));
+  const resized = decoded.width > maxWidth; // the width as displayed, after orientation
+  const image = resized ? await resizeToWidth(decoded, maxWidth) : decoded;
   const strip = stripLossless(bytes, info);
   const profile: StripRemovedKind[] = info.icc === null ? [] : ["icc"];
   const reencodeStripped = new Set([
@@ -71,8 +109,15 @@ async function createRasterSource(
   return {
     image,
     format: info.format,
-    strip,
+    strip: resized ? undefined : strip,
     reencodeStripped: [...reencodeStripped].toSorted(),
+    rights: createSourceRights(
+      bytes,
+      info.format,
+      info.rights ?? {},
+      strip,
+      settings
+    ),
     losslessWebp: info.format === "webp" && isLosslessWebp(bytes),
     scorable: isScorable(image),
     target,
@@ -103,7 +148,7 @@ function toCandidate(
   encoded: EncodeResult,
   encodedScore: number,
   source: RasterSource
-): Candidate {
+): RasterCandidate {
   return {
     format: encoded.format,
     method: encoded.method,
@@ -215,21 +260,25 @@ function reencodersFor(format: EncodeFormat, source: RasterSource) {
  * Returns the lossless strip of the source as a candidate, which scores 100 because its image
  * data is untouched.
  *
- * @param source - The source.
+ * @param format - The source's format.
+ * @param strip - Its strip.
  */
-function stripCandidate(source: RasterSource): Candidate {
+function stripCandidate(
+  format: StripFormat,
+  strip: StripResult
+): RasterCandidate {
   return {
-    format: source.format,
+    format,
     method: "strip",
-    bytes: source.strip.bytes,
+    bytes: strip.bytes,
     score: 100,
-    strippedMetadata: source.strip.removed,
+    strippedMetadata: strip.removed,
   };
 }
 
 /**
  * Makes every candidate in one format: the searched and lossless re-encodes, plus the strip
- * when the source is already in that format.
+ * when the source is already in that format and wasn't resized.
  *
  * The re-encodes run concurrently, so sharp encodes in the background while the main thread
  * scores.
@@ -239,7 +288,10 @@ function stripCandidate(source: RasterSource): Candidate {
  * @returns The candidates, and why there are none when the format can't hold the image.
  */
 async function rasterCandidates(format: EncodeFormat, source: RasterSource) {
-  const strip = format === source.format ? [stripCandidate(source)] : [];
+  const strip =
+    format === source.format && source.strip !== undefined
+      ? [stripCandidate(source.format, source.strip)]
+      : [];
 
   try {
     const reencodes = await Promise.all(

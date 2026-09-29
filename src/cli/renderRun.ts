@@ -1,6 +1,7 @@
 import type {
   PipelineFileResult,
   PipelineRunResult,
+  PipelineWarning,
 } from "../pipeline/index.js";
 import {
   STATUS_LABELS,
@@ -9,6 +10,7 @@ import {
   formatQuality,
   formatTotals,
 } from "./format.js";
+import { OPTIMISE_HINTS, withHint } from "./hints.js";
 import { paint, verdictStyle } from "./paint.js";
 import renderTable from "./renderTable.js";
 import type { TableCell, TableColumn } from "./renderTable.js";
@@ -26,12 +28,34 @@ const COLUMNS: TableColumn[] = [
 ];
 
 /**
+ * Returns whether a warning is `W_NO_RIGHTS`, which the table gives once for the run, since a
+ * batch without rights would repeat it on every file.
+ *
+ * @param warning - The warning.
+ */
+function isNoRights(warning: PipelineWarning) {
+  return warning.code === "W_NO_RIGHTS";
+}
+
+/**
+ * Returns a file's warnings, leaving out `W_NO_RIGHTS`.
+ *
+ * @param file - The file's result.
+ */
+function fileWarnings(file: PipelineFileResult) {
+  return file.warnings.filter((warning) => !isNoRights(warning));
+}
+
+/**
  * Returns a file's error and warning codes, red when it failed and yellow otherwise.
  *
  * @param file - The file's result.
  */
 function notesOf(file: PipelineFileResult): TableCell {
-  const codes = [file.error?.code, ...file.warnings.map((each) => each.code)];
+  const codes = [
+    file.error?.code,
+    ...fileWarnings(file).map((each) => each.code),
+  ];
 
   return {
     text: codes.filter((code) => code !== undefined).join(", "),
@@ -89,8 +113,35 @@ function summaryOf(result: PipelineRunResult) {
 }
 
 /**
- * Renders a run's result for people: a table of every output, a summary, each error and
- * warning in full, and the markup of each file that has some.
+ * Says how many files have no rights fields, with the flags that add them, or nothing when
+ * every file has some.
+ *
+ * @param result - The run's result.
+ * @param color - Whether to add colour.
+ */
+function noRightsOf(result: PipelineRunResult, color: boolean) {
+  const count = result.files.filter((file) =>
+    file.warnings.some(isNoRights)
+  ).length;
+
+  if (count === 0) {
+    return "";
+  }
+
+  const { code, message } = withHint(
+    {
+      code: "W_NO_RIGHTS",
+      message: `${count} ${count === 1 ? "file has" : "files have"} no copyright or licence metadata`,
+    },
+    OPTIMISE_HINTS
+  );
+
+  return `${paint(code, "yellow", color)} ${message}\n`;
+}
+
+/**
+ * Renders a run's result for people: a table of every output, a summary, and each error and
+ * warning in full, apart from `W_NO_RIGHTS`, which is counted once.
  *
  * @param result - The run's result.
  * @param color - Whether to add colour.
@@ -103,19 +154,15 @@ function renderRun(result: PipelineRunResult, color: boolean) {
       : [
           `${file.input}: ${paint(file.error.code, "red", color)} ${file.error.message}\n`,
         ]),
-    ...file.warnings.map(
+    ...fileWarnings(file).map(
       (warning) =>
         `${file.input}: ${paint(warning.code, "yellow", color)} ${warning.message}\n`
     ),
   ]);
-  const markup = result.files
-    .filter((file) => file.markup !== undefined)
-    .map((file) => `<!-- ${file.input} -->\n${file.markup}\n`);
   const sections = [
     table,
     summaryOf(result),
-    messages.join(""),
-    markup.join("\n"),
+    `${messages.join("")}${noRightsOf(result, color)}`,
   ];
 
   return sections.filter((section) => section !== "").join("\n"); // each section ends in a newline, so this leaves a blank line between them

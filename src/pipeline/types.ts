@@ -30,38 +30,34 @@ const PIPELINE_MODES = ["same", "webp", "avif", "suite"] as const;
  * - `webp` and `avif`: that format.
  * - `suite`: AVIF, WebP and a JPEG or PNG fallback for a `<picture>` element, keeping each only
  *   when it's smaller than the next.
- *
- * @example
- * ```ts
- * import type { PipelineMode } from "web-image-optimiser";
- *
- * const mode: PipelineMode = "suite";
- * ```
  */
 type PipelineMode = (typeof PIPELINE_MODES)[number];
 
 /**
  * A named quality target: `visually-lossless` (SSIMULACRA 2 score 90), `excellent` (85),
  * `high` (80) or `web` (70).
- *
- * @example
- * ```ts
- * import type { PipelineTargetPreset } from "web-image-optimiser";
- *
- * const target: PipelineTargetPreset = "excellent";
- * ```
  */
 type PipelineTargetPreset = "visually-lossless" | "excellent" | "high" | "web";
 
 /**
+ * Rights fields to add to every raster output that lacks them. A field the file already has is
+ * never replaced. Each value is trimmed and must not be empty.
+ */
+type PipelineRightsOptions = {
+  /** Creator (`dc:creator`). */
+  creator?: string;
+  /** Credit Line (`photoshop:Credit`). */
+  credit?: string;
+  /** Copyright Notice (`dc:rights`), written for any language. */
+  copyright?: string;
+  /** Web Statement of Rights (`xmpRights:WebStatement`): the licence's URL, `http:` or `https:`. */
+  rightsUrl?: string;
+  /** Licensor URL (`plus:LicensorURL`): where to license the image, `http:` or `https:`. */
+  licensorUrl?: string;
+};
+
+/**
  * Options for {@link optimiseFile}. Every option is optional.
- *
- * @example
- * ```ts
- * import type { PipelineOptions } from "web-image-optimiser";
- *
- * const options: PipelineOptions = { to: "avif", target: "excellent", outDir: "web" };
- * ```
  */
 type PipelineOptions = {
   /** What to write. Defaults to `webp`. */
@@ -76,31 +72,23 @@ type PipelineOptions = {
   overwrite?: boolean;
   /** Works everything out and reports it, but writes nothing. */
   dryRun?: boolean;
+  /** The widest a raster output may be, in pixels. A wider image is shrunk to it, keeping its aspect ratio, before the quality search; SVGs are left at their size. */
+  maxWidth?: number;
+  /** Removes every field, the copyright and licence fields a raster output otherwise keeps included. Can't be combined with `rights`. */
+  stripAll?: boolean;
+  /** Rights fields to add where a file has none, as long as the output stays smaller than the input. */
+  rights?: PipelineRightsOptions;
 };
 
 /**
  * What an output is for: `same` when it's in the source's own format (always, for SVG),
  * otherwise the format it was asked for, or `fallback` for a suite's JPEG or PNG.
- *
- * @example
- * ```ts
- * import type { PipelineOutputRole } from "web-image-optimiser";
- *
- * const role: PipelineOutputRole = "fallback";
- * ```
  */
 type PipelineOutputRole = (typeof OUTPUT_ROLES)[number];
 
 /**
  * How an output was made: `strip` (the source with its metadata removed and its image data
  * untouched), `svgo`, or an encoder's `lossy`, `lossless` or `near-lossless` mode.
- *
- * @example
- * ```ts
- * import type { PipelineOutputMethod } from "web-image-optimiser";
- *
- * const method: PipelineOutputMethod = "strip";
- * ```
  */
 type PipelineOutputMethod = (typeof OUTPUT_METHODS)[number];
 
@@ -108,25 +96,11 @@ type PipelineOutputMethod = (typeof OUTPUT_METHODS)[number];
  * One file {@link optimiseFile} wrote, or would write in a dry run: its role, path, format,
  * method, quality, size (and gzipped size for SVG), saving, score, verdict and the metadata it
  * dropped. `docs/json-contract.md` describes each field.
- *
- * @example
- * ```ts
- * import { optimiseFile, type PipelineOutput } from "web-image-optimiser";
- *
- * const [output]: PipelineOutput[] = (await optimiseFile("photo.jpg")).outputs;
- * ```
  */
 type PipelineOutput = z.infer<typeof outputSchema>;
 
 /**
  * A warning about one file, with a stable code and a plain-language message.
- *
- * @example
- * ```ts
- * import type { PipelineWarning } from "web-image-optimiser";
- *
- * const warning: PipelineWarning = { code: "W_ICC_KEPT", message: "..." };
- * ```
  */
 type PipelineWarning = z.infer<typeof warningSchema>;
 
@@ -138,26 +112,12 @@ type PipelineWarning = z.infer<typeof warningSchema>;
  *   written.
  * - `skipped`: an output already exists (`W_OUTPUT_EXISTS`).
  * - `failed`: see `error`.
- *
- * @example
- * ```ts
- * import type { PipelineFileStatus } from "web-image-optimiser";
- *
- * const status: PipelineFileStatus = "kept-original";
- * ```
  */
 type PipelineFileStatus = (typeof FILE_STATUSES)[number];
 
 /**
  * The result of {@link optimiseFile}: the input path as given, its status and size, what was
  * written (AVIF first, the fallback last), warnings, and the error when it failed.
- *
- * @example
- * ```ts
- * import { optimiseFile, type PipelineFileResult } from "web-image-optimiser";
- *
- * const result: PipelineFileResult = await optimiseFile("photo.jpg", { outDir: "web" });
- * ```
  */
 type PipelineFileResult = z.infer<typeof fileResultSchema>;
 
@@ -165,13 +125,6 @@ type PipelineFileResult = z.infer<typeof fileResultSchema>;
  * The result of {@link optimiseBatch}, which `--json` prints: the contract's
  * `schemaVersion`, the tool's versions, the options used, every file's result in input order,
  * and totals.
- *
- * @example
- * ```ts
- * import { optimiseBatch, type PipelineRunResult } from "web-image-optimiser";
- *
- * const result: PipelineRunResult = await optimiseBatch(["a.jpg", "b.png"], { outDir: "web" });
- * ```
  */
 type PipelineRunResult = z.infer<typeof runResultSchema>;
 
@@ -179,29 +132,12 @@ type PipelineRunResult = z.infer<typeof runResultSchema>;
  * A progress event from {@link optimiseBatch}, which `--ndjson` prints a line for:
  * `run-start`, then `file-start` and `file-done` for each file (interleaved when files run
  * in parallel), then `run-done` with the totals.
- *
- * @example
- * ```ts
- * import { optimiseBatch, type PipelineEvent } from "web-image-optimiser";
- *
- * const onEvent = (event: PipelineEvent) => {
- *   if (event.type === "file-done") console.log(event.file.input, event.file.status);
- * };
- * await optimiseBatch(["a.jpg"], {}, { onEvent });
- * ```
  */
 type PipelineEvent = z.infer<typeof eventSchema>;
 
 /**
  * An input to {@link optimiseBatch}: a path, or a path with its own output folder, which
  * overrides `outDir`.
- *
- * @example
- * ```ts
- * import type { PipelineBatchInput } from "web-image-optimiser";
- *
- * const inputs: PipelineBatchInput[] = ["logo.png", { path: "blog/hero.jpg", outDir: "web/blog" }];
- * ```
  */
 type PipelineBatchInput = string | { path: string; outDir?: string };
 
@@ -216,6 +152,7 @@ export type {
   PipelineOutput,
   PipelineOutputMethod,
   PipelineOutputRole,
+  PipelineRightsOptions,
   PipelineRunResult,
   PipelineTargetPreset,
   PipelineWarning,

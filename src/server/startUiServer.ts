@@ -17,15 +17,6 @@ import type { UiServer, UiServerOptions } from "./types.js";
  * it, to open in a browser without putting the token on a command line), and a function that
  * stops the server.
  * @throws Error when `root` isn't a folder or the port can't be used.
- *
- * @example
- * ```ts
- * import { startUiServer } from "web-image-optimiser";
- *
- * const server = await startUiServer({ root: "photos" });
- * console.log(`Open ${server.url}`);
- * process.once("SIGINT", () => void server.close());
- * ```
  */
 async function startUiServer(options: UiServerOptions): Promise<UiServer> {
   const { default: listen } = await import("./listen.js"); // zod and the routes load only when a server starts

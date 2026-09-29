@@ -1,6 +1,10 @@
 export { default as optimiseBatch } from "./optimiseBatch.js";
 export { default as optimiseFile } from "./optimiseFile.js";
-export { PIPELINE_TARGET_PRESETS } from "./resolveSettings.js";
+export {
+  PIPELINE_RIGHTS_OPTIONS,
+  PIPELINE_TARGET_PRESETS,
+  isWebUrl,
+} from "./resolveSettings.js";
 export { PIPELINE_MODES } from "./types.js";
 export type {
   PipelineBatchInput,
@@ -12,6 +16,7 @@ export type {
   PipelineOutput,
   PipelineOutputMethod,
   PipelineOutputRole,
+  PipelineRightsOptions,
   PipelineRunResult,
   PipelineTargetPreset,
   PipelineWarning,

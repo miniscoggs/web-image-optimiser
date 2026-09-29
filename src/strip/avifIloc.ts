@@ -109,5 +109,40 @@ function locateItem(item: AvifIlocItem) {
   return method === IDAT_OFFSET ? "idat" : "elsewhere";
 }
 
-export { locateItem, parseIloc, serialiseIloc };
+/**
+ * Moves the items' offsets to where their data lies after an edit.
+ *
+ * @param iloc - The parsed `iloc`.
+ * @param fileOffset - Maps a file offset from before the edit to after it.
+ * @param idatOffset - Maps an `idat` offset from before the edit to after it.
+ */
+function relocateItems(
+  iloc: AvifIloc,
+  fileOffset: (offset: number) => number,
+  idatOffset: (offset: number) => number
+): AvifIloc {
+  const items = iloc.items.map((item) => {
+    const location = locateItem(item);
+    const map = location === "file" ? fileOffset : idatOffset;
+
+    if (location === "elsewhere") {
+      return item;
+    }
+
+    const baseOffset = map(item.baseOffset);
+
+    return {
+      ...item,
+      baseOffset,
+      extents: item.extents.map((extent) => ({
+        ...extent,
+        offset: map(item.baseOffset + extent.offset) - baseOffset,
+      })),
+    };
+  });
+
+  return { ...iloc, items };
+}
+
+export { locateItem, parseIloc, relocateItems, serialiseIloc };
 export type { AvifIloc, AvifIlocItem };

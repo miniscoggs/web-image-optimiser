@@ -4,7 +4,8 @@
  * `process.env` or `process.argv`.
  *
  * Ctrl+C or SIGTERM stops the run once the files in progress finish their current step, which
- * leaves no temp files, then exits 130 or 143. A second signal exits at once.
+ * leaves no temp files, then exits 130 or 143. A second signal exits at once. Output whose reader
+ * has gone, such as a pipe into `head`, stops a run in progress the same way, exiting 141.
  */
 import { spawn } from "node:child_process";
 import { constants } from "node:os";
@@ -15,8 +16,11 @@ const OPENERS: Partial<Record<NodeJS.Platform, string>> = {
   darwin: "open",
 };
 
+const EXIT_OUTPUT_CLOSED = 141; // 128 + SIGPIPE's number on POSIX, what a shell reports for a command whose reader stopped
+
 const controller = new AbortController();
 let received: NodeJS.Signals | undefined;
+let outputClosed = false;
 
 /**
  * Opens an address in the default browser, ignoring a failure, since `wio ui` also prints
@@ -48,8 +52,24 @@ function onSignal(signal: NodeJS.Signals) {
   controller.abort();
 }
 
+/**
+ * Stops the run when stdout's or stderr's reader has gone, rather than crash on the error. What
+ * is written after that is lost.
+ *
+ * @param error - The stream's error.
+ */
+function onOutputError(error: NodeJS.ErrnoException) {
+  if (error.code !== "EPIPE") {
+    throw error;
+  }
+  outputClosed = true;
+  controller.abort();
+}
+
 process.on("SIGINT", onSignal);
 process.on("SIGTERM", onSignal);
+process.stdout.on("error", onOutputError); // never removed, since a write's error can arrive after the run
+process.stderr.on("error", onOutputError);
 try {
   process.exitCode = await runCli(process.argv.slice(2), {
     stdout: process.stdout,
@@ -60,10 +80,13 @@ try {
     openUrl,
   });
 } catch (error) {
-  if (received === undefined) {
+  if (received !== undefined) {
+    process.exitCode = 128 + constants.signals[received];
+  } else if (outputClosed) {
+    process.exitCode = EXIT_OUTPUT_CLOSED;
+  } else {
     throw error;
   }
-  process.exitCode = 128 + constants.signals[received];
 } finally {
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);

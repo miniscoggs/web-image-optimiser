@@ -27,18 +27,6 @@ const STRIPPERS = {
  * @returns The stripped bytes and what was removed, or the input itself with nothing removed.
  * @throws {@link OptimiserError} `E_DECODE` when the file's structure ends early or a field
  * runs past it.
- *
- * @example
- * ```ts
- * import { readFile } from "node:fs/promises";
- * import { inspect, stripLossless } from "web-image-optimiser";
- *
- * const bytes = await readFile("photo.jpg");
- * const info = await inspect(bytes);
- * if (info.format === "jpeg") {
- *   const { removed } = stripLossless(bytes, info); // ["exif", "gps", "xmp"]
- * }
- * ```
  */
 function stripLossless(
   bytes: Buffer,

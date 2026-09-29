@@ -11,6 +11,16 @@ type CliHints = Partial<
 >;
 
 /**
+ * The optimise command's hints, shared by its JSON and its table.
+ */
+const OPTIMISE_HINTS: CliHints = {
+  E_OUTPUT_IS_INPUT: "--out-dir <dir> or --in-place",
+  W_OUTPUT_EXISTS: "--overwrite",
+  W_NO_RIGHTS:
+    "--creator, --credit, --copyright, --rights-url, --licensor-url or --strip-all",
+};
+
+/**
  * Adds the flag that fixes an error or warning to its message, since the engine's messages
  * don't know the CLI's flags.
  *
@@ -29,5 +39,5 @@ function withHint<Item extends { code: keyof CliHints; message: string }>(
     : { ...item, message: `${item.message} (${hint})` };
 }
 
-export default withHint;
+export { OPTIMISE_HINTS, withHint };
 export type { CliHints };

@@ -1,7 +1,11 @@
 import isSrgbProfile from "../inspect/isSrgbProfile.js";
 import {
-  CHUNK_HEADER_LENGTH,
   RIFF_HEADER_LENGTH,
+  VP8X_EXIF,
+  VP8X_FLAGS_OFFSET,
+  VP8X_ICC,
+  VP8X_XMP,
+  buildRiffChunk,
   riffChunks,
   riffPayloadEnd,
 } from "../inspect/riffChunks.js";
@@ -10,27 +14,6 @@ import createExifRewriter from "./createExifRewriter.js";
 import type { StripRemovedKind, StripResult } from "./types.js";
 
 const IMAGE_CHUNKS = new Set(["VP8 ", "VP8L", "ALPH"]);
-const VP8X_FLAGS_OFFSET = CHUNK_HEADER_LENGTH;
-const VP8X_ICC = 0x20;
-const VP8X_EXIF = 0x08;
-const VP8X_XMP = 0x04;
-
-/**
- * Builds a RIFF chunk, padded to an even length.
- *
- * @param type - The four-character chunk type.
- * @param payload - The chunk's payload.
- */
-function buildChunk(type: string, payload: Buffer) {
-  const chunk = Buffer.alloc(
-    CHUNK_HEADER_LENGTH + payload.length + (payload.length % 2)
-  );
-
-  chunk.write(type, 0, "latin1");
-  chunk.writeUInt32LE(payload.length, 4);
-  payload.copy(chunk, CHUNK_HEADER_LENGTH);
-  return chunk;
-}
 
 /**
  * Strips a WebP's metadata chunks, keeping the image data, a non-sRGB `ICCP` and an
@@ -68,7 +51,7 @@ function stripWebp(webp: Buffer, orientation: number): StripResult {
       const replacement = rewriteExif(chunk.payload);
 
       if (replacement !== undefined) {
-        pieces.push(buildChunk("EXIF", replacement));
+        pieces.push(buildRiffChunk("EXIF", replacement));
         keptFlags |= VP8X_EXIF;
       }
     } else {

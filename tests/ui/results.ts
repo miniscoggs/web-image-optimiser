@@ -18,6 +18,8 @@ function outputOf(
 ): PipelineOutput {
   return {
     path: `session/runs/1/0/cat.${output.format}`,
+    width: 64,
+    height: 48,
     saving: 1 - output.bytes / INPUT_BYTES,
     score: 100,
     verdict: "visually-lossless",

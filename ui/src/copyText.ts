@@ -1,4 +1,3 @@
-import type { PipelineFileResult } from "../../src/pipeline/types.js";
 import type { RunOptions } from "./api.js";
 import { displayName } from "./refs.js";
 import type { RunFile } from "./runState.js";
@@ -46,19 +45,6 @@ function cliCommand(refs: string[], options: RunOptions, root: string) {
     "--target",
     String(options.target),
   ].join(" ");
-}
-
-/**
- * Returns a suite run's markup as `wio --markup` prints it: each file's, after a comment naming
- * it. It is empty when no file has any.
- *
- * @param files - The run's finished files.
- */
-function markupText(files: PipelineFileResult[]) {
-  return files
-    .filter((file) => file.markup !== undefined)
-    .map((file) => `<!-- ${displayName(file.input)} -->\n${file.markup}\n`)
-    .join("\n");
 }
 
 /**
@@ -111,4 +97,4 @@ function cliBlockNote(files: RunFile[]) {
   };
 }
 
-export { cliBlockNote, cliCommand, markupText };
+export { cliBlockNote, cliCommand };

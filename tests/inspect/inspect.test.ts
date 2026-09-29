@@ -94,7 +94,9 @@ describe("inspect", () => {
         orientation: fixture.orientation,
         icc: fixture.icc,
         metadata: fixture.metadata,
-        ...(fixture.svg && { svg: fixture.svg }),
+        ...(fixture.format === "svg"
+          ? { svg: fixture.svg }
+          : { rights: fixture.rights ?? {} }),
       });
     }
   );

@@ -1,5 +1,4 @@
 import path from "node:path";
-import { generatePictureMarkup } from "../markup/index.js";
 import findConflicts from "../pipeline/findConflicts.js";
 import type {
   PipelineEvent,
@@ -106,49 +105,18 @@ async function failuresOf(
 }
 
 /**
- * Generates the markup that `wio --to suite --markup` would print for a file, run in the folder
- * served: its outputs beside it, at URLs relative to that folder, or an upload's own.
- *
- * @param file - The file's result.
- * @param inputRef - The input's ref.
- * @param folders - The server's folders.
- */
-function markupAsWritten(
-  file: PipelineFileResult,
-  inputRef: string,
-  folders: ServerFolders
-) {
-  const inputFolder = path.dirname(file.input);
-  const asWritten = {
-    ...file,
-    outputs: file.outputs.map((output) => ({
-      ...output,
-      path: path.join(inputFolder, path.basename(output.path)),
-    })),
-  };
-  const root = inputRef.startsWith("root/") ? folders.root : inputFolder;
-
-  return generatePictureMarkup(asWritten, { root });
-}
-
-/**
  * Describes a finished file with refs in place of paths, in its fields and its messages.
  *
  * @param file - The file's result.
  * @param inputRefs - Each input's ref, by path.
  * @param folders - The server's folders.
- * @param withMarkup - Whether to add the file's markup.
  */
 function presentFile(
   file: PipelineFileResult,
   inputRefs: Map<string, string>,
-  folders: ServerFolders,
-  withMarkup: boolean
+  folders: ServerFolders
 ): PipelineFileResult {
   const inputRef = inputRefs.get(file.input) ?? file.input;
-  const markup = withMarkup
-    ? markupAsWritten(file, inputRef, folders)
-    : undefined;
   const refs = new Map(
     file.error?.code === "E_OUTPUT_CONFLICT"
       ? inputRefs // only a clash's message names another input
@@ -168,7 +136,6 @@ function presentFile(
     outputs,
     warnings: file.warnings.map(relabel),
     ...(file.error === undefined ? {} : { error: relabel(file.error) }),
-    ...(markup === undefined ? {} : { markup }),
   };
 }
 
@@ -178,22 +145,17 @@ function presentFile(
  * @param event - The event.
  * @param inputRefs - Each input's ref, by path.
  * @param folders - The server's folders.
- * @param withMarkup - Whether to add each file's markup.
  */
 function presentEvent(
   event: PipelineEvent,
   inputRefs: Map<string, string>,
-  folders: ServerFolders,
-  withMarkup: boolean
+  folders: ServerFolders
 ): PipelineEvent {
   if (event.type === "file-start") {
     return { ...event, input: inputRefs.get(event.input) ?? event.input };
   }
   return event.type === "file-done"
-    ? {
-        ...event,
-        file: presentFile(event.file, inputRefs, folders, withMarkup),
-      }
+    ? { ...event, file: presentFile(event.file, inputRefs, folders) }
     : event;
 }
 
@@ -293,12 +255,7 @@ function createRunRoute(context: ServerContext): ServerRoutes {
                 mode = event.options.to;
               }
 
-              const presented = presentEvent(
-                event,
-                inputRefs,
-                context.folders,
-                request.to === "suite" // as the cli allows --markup only with suite
-              );
+              const presented = presentEvent(event, inputRefs, context.folders);
               const cli =
                 event.type === "file-done" && mode !== undefined
                   ? cliEventOf(

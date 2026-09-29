@@ -24,6 +24,7 @@ describe("optimiseFile on an image too large to score at full size", () => {
 
       expect(result.warnings.map((warning) => warning.code)).toEqual([
         "W_SCORED_DOWNSCALED",
+        "W_NO_RIGHTS",
       ]);
     } finally {
       await rm(outDir, { recursive: true, force: true });

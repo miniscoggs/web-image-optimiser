@@ -102,6 +102,7 @@
       "orientation": 1,
       "icc": null,
       "metadata": ["exif", "text"],
+      "rights": { "creator": ["Fixture Author"] },
       "source": "fixtures/generate.mjs",
       "licence": "MIT"
     },
@@ -117,6 +118,7 @@
       "orientation": 6,
       "icc": "srgb",
       "metadata": ["comment", "exif", "gps", "xmp"],
+      "rights": { "creator": ["Fixture Author"] },
       "notes": "Stored 480x320 with the marker top-left; displays rotated 90 degrees clockwise. Carries libvips's compact v4 profile, described as just \"sRGB\".",
       "source": "fixtures/generate.mjs",
       "licence": "MIT"
@@ -149,6 +151,7 @@
       "orientation": 1,
       "icc": null,
       "metadata": ["exif", "xmp"],
+      "rights": { "creator": ["Fixture Author"] },
       "source": "fixtures/generate.mjs",
       "licence": "MIT"
     },
@@ -164,6 +167,7 @@
       "orientation": 1,
       "icc": null,
       "metadata": ["exif", "xmp"],
+      "rights": { "creator": ["Fixture Author"] },
       "source": "fixtures/generate.mjs",
       "licence": "MIT"
     },
@@ -210,6 +214,7 @@
       "orientation": 1,
       "icc": "srgb",
       "metadata": ["exif", "gps", "xmp"],
+      "rights": { "creator": ["Fixture Author"] },
       "notes": "Stored 480x320 with the marker top-left; an irot property turns it 90 degrees clockwise. AVIF orientation lives in irot, not EXIF, so sharp reports none. Carries an sRGB rICC colour property before irot in ipco, plus Exif and XMP items.",
       "source": "fixtures/generate.mjs",
       "licence": "MIT"
@@ -285,6 +290,15 @@
       "orientation": 1,
       "icc": "srgb",
       "metadata": ["exif", "gps", "iptc", "xmp"],
+      "rights": {
+        "creator": ["Wilfredo R. Rodriguez H."],
+        "copyright": [
+          {
+            "lang": "x-default",
+            "value": "Creative Commons CC0 1.0 Universal Public Domain"
+          }
+        ]
+      },
       "notes": "Macro with bokeh. Has an APP14 Adobe segment and no Orientation tag.",
       "source": "https://commons.wikimedia.org/wiki/File:Chlosyne_lacinia.jpg",
       "author": "Wilfredor",
@@ -303,6 +317,15 @@
       "orientation": 1,
       "icc": "srgb",
       "metadata": ["exif", "gps", "iptc", "xmp"],
+      "rights": {
+        "creator": ["Wilfredo R. Rodriguez H."],
+        "copyright": [
+          {
+            "lang": "x-default",
+            "value": "Creative Commons CC0 1.0 Universal Public Domain"
+          }
+        ]
+      },
       "notes": "Night scene with point lights and noise. Has an APP14 Adobe segment.",
       "source": "https://commons.wikimedia.org/wiki/File:Sz%C3%A9chenyi_Chain_Bridge_in_Budapest_at_night.jpg",
       "author": "Wilfredor",
@@ -344,6 +367,34 @@
       "author": "Wilfredor",
       "licence": "CC0-1.0",
       "derivation": "Resized to 1600 px on the long edge (mozjpeg q90) with the original APPn/COM segments kept byte for byte."
+    },
+    {
+      "file": "rights.jpg",
+      "kind": "photo",
+      "format": "jpeg",
+      "width": 320,
+      "height": 240,
+      "alpha": false,
+      "animated": false,
+      "bitDepth": 8,
+      "orientation": 1,
+      "icc": null,
+      "metadata": ["exif", "iptc", "xmp"],
+      "rights": {
+        "creator": ["Ada Example", "Grace Example"],
+        "credit": "Example Picture Library",
+        "copyright": [
+          { "lang": "x-default", "value": "© 2026 Example Ltd" },
+          { "lang": "de", "value": "© 2026 Example GmbH" }
+        ],
+        "webStatement": "https://example.com/licence",
+        "licensorUrl": ["https://example.com/buy"],
+        "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"
+      },
+      "notes": "Every rights field in XMP, a different Creator in IPTC IIM (2:80, declared UTF-8) and an EXIF Artist; the XMP values win.",
+      "source": "fixtures/generate.mjs",
+      "licence": "CC0-1.0",
+      "derivation": "A 320x240 crop of photo-butterfly.jpg (mozjpeg q85), with made-up rights metadata added."
     }
   ]
 }

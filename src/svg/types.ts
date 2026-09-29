@@ -1,15 +1,6 @@
 /**
  * The result of {@link optimiseSvg}: SVGO's output at the lowest float precision that still
  * renders like the original (`svgo`), or, when none does, the metadata-only pass (`strip`).
- *
- * @example
- * ```ts
- * import { readFile } from "node:fs/promises";
- * import { optimiseSvg, type SvgOptimiseResult } from "web-image-optimiser";
- *
- * const result: SvgOptimiseResult = await optimiseSvg(await readFile("logo.svg"));
- * if (result.method === "svgo") console.log(result.floatPrecision);
- * ```
  */
 type SvgOptimiseResult = {
   /** The optimised SVG. */

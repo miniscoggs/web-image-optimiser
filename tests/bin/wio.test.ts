@@ -30,16 +30,19 @@ let folder = "";
  * Runs the built CLI in the test folder.
  *
  * @param args - The arguments.
- * @param onStdout - Called as each chunk of stdout arrives, with the child and everything
- * printed so far.
- * @param detached - Whether it leads a process group of its own, as a terminal's command does,
- * so a signal can reach it and its lanes' processes together.
+ * @param options - `onStdout` is called as each chunk of stdout arrives, with the child and
+ * everything printed so far. `detached` makes it lead a process group of its own, as a terminal's
+ * command does, so a signal can reach it and its lanes' processes together. `closeStdout` closes
+ * the reading end of its stdout at once, as `head` does once it has read enough.
  * @returns The exit code, the signal that ended it, and everything it printed.
  */
 async function wio(
   args: string[],
-  onStdout?: (child: ReturnType<typeof spawn>, printed: string) => void,
-  detached = false
+  options: {
+    onStdout?: (child: ReturnType<typeof spawn>, printed: string) => void;
+    detached?: boolean;
+    closeStdout?: boolean;
+  } = {}
 ) {
   return new Promise<{
     exitCode: number | null;
@@ -48,14 +51,17 @@ async function wio(
   }>((resolve, reject) => {
     const child = spawn(process.execPath, [fileURLToPath(BIN), ...args], {
       cwd: folder,
-      detached,
+      detached: options.detached,
     });
     let stdout = "";
     let stderr = "";
 
+    if (options.closeStdout) {
+      child.stdout.destroy();
+    }
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
       stdout += chunk;
-      onStdout?.(child, stdout);
+      options.onStdout?.(child, stdout);
     });
     child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
       stderr += chunk;
@@ -182,8 +188,7 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
       "web",
       "web/banner.avif",
       "web/banner.png",
-      "web/gradient.avif",
-      "web/gradient.png",
+      "web/gradient.png", // gradient-16bit.png, whose lossless WebP beats its AVIF
       "web/gradient.webp",
       "web/photo.avif",
       "web/photo.png", // display-p3.jpg, whose fallback is a palette PNG
@@ -265,14 +270,16 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
 
       const { exitCode, stdout, stderr } = await wio(
         ["images", "--to", "suite", "--out-dir", "web", "--ndjson"],
-        (child, printed) => {
-          if (printed.includes('"file-start"')) {
-            setTimeout(() => {
-              interruptGroup(child);
-            }, 1_000); // once the lanes' processes are at work, so they must ignore it and finish their step
-          }
-        },
-        true
+        {
+          onStdout: (child, printed) => {
+            if (printed.includes('"file-start"')) {
+              setTimeout(() => {
+                interruptGroup(child);
+              }, 1_000); // once the lanes' processes are at work, so they must ignore it and finish their step
+            }
+          },
+          detached: true,
+        }
       );
       const files = await listFiles();
 
@@ -283,15 +290,28 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
     }
   );
 
+  it("stops quietly with exit code 141 when its output closes, as a pipe into head does", async () => {
+    await copyFixtures("images", [["photo-butterfly.jpg", "butterfly.jpg"]]);
+
+    const help = await wio(["--help"], { closeStdout: true });
+    const run = await wio(
+      ["images", "--to", "suite", "--out-dir", "web", "--ndjson"],
+      { closeStdout: true }
+    );
+
+    expect(help).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+    expect(run).toEqual({ exitCode: 141, stdout: "", stderr: "" });
+    expect(await listFiles()).toEqual(["images", "images/butterfly.jpg"]);
+  });
+
   it.skipIf(process.platform === "win32")(
     "serves the UI until Ctrl+C, then removes its temp folder",
     async () => {
       await copyFixtures("images", [["logo-alpha.png", "logo.png"]]);
 
       let probe: Promise<{ folder: string; files: unknown }> | undefined;
-      const { exitCode, stdout } = await wio(
-        ["ui", "images", "--no-open"],
-        (child, printed) => {
+      const { exitCode, stdout } = await wio(["ui", "images", "--no-open"], {
+        onStdout: (child, printed) => {
           if (!printed.endsWith("\n")) {
             return; // the address may arrive in pieces
           }
@@ -315,8 +335,8 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
             }
           })();
         },
-        true
-      );
+        detached: true,
+      });
       const probed = await probe;
 
       expect(exitCode).toBe(130);

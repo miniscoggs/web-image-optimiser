@@ -16,6 +16,8 @@ import {
 } from "../metrics/index.js";
 import readInput from "../pipeline/readInput.js";
 import writeOutputs from "../pipeline/writeOutputs.js";
+import { buildRightsPacket, setRights } from "../rights/index.js";
+import type { ImageRights } from "../rights/index.js";
 import { OptimiserError } from "../schema/index.js";
 import type { OptimiserErrorCode } from "../schema/index.js";
 import type { PixelFormat } from "./api.js";
@@ -58,12 +60,13 @@ type PixelReply =
   | { type: "failed"; code?: OptimiserErrorCode; message: string };
 
 /**
- * A decoded raster image, with its file's size.
+ * A decoded raster image, with its file's size and rights fields.
  */
 type DecodedFile = {
   path: string;
   image: Awaited<ReturnType<typeof decodeForScoring>>;
   bytes: number;
+  rights: ImageRights;
 };
 
 /**
@@ -92,7 +95,12 @@ async function decodeFile(filePath: string): Promise<DecodedFile> {
 
   const image = await readOrFail(() => decodeForScoring(file.bytes));
 
-  return { path: filePath, image, bytes: file.bytes.length };
+  return {
+    path: filePath,
+    image,
+    bytes: file.bytes.length,
+    rights: info.rights ?? {},
+  };
 }
 
 /**
@@ -111,7 +119,8 @@ async function decodeOriginal(filePath: string) {
 }
 
 /**
- * Re-encodes a source at a quality, scores it against the source, and writes it.
+ * Re-encodes a source at a quality, carrying the source's rights fields as a run's outputs do,
+ * scores it against the source, and writes it.
  *
  * @param job - The job.
  */
@@ -121,6 +130,11 @@ async function encodeJob(
   sharp.concurrency(1); // as in optimiseFile, so a quality gives the bytes a run would
   const source = await decodeOriginal(job.source);
   const encoded = await ENCODERS[job.format](source.image, job.quality);
+  const packet = buildRightsPacket(source.rights);
+  const bytes =
+    packet === undefined
+      ? encoded.bytes
+      : setRights(encoded.bytes, job.format, packet);
   const decoded = await decodeForScoring(encoded.bytes);
 
   if (!isScorable(source.image) && !source.image.data.equals(decoded.data)) {
@@ -132,10 +146,10 @@ async function encodeJob(
 
   const value = await score(source.image, decoded);
 
-  await writeOutputs([{ path: job.output, bytes: encoded.bytes }], undefined);
+  await writeOutputs([{ path: job.output, bytes }], undefined);
   return {
     type: "encoded",
-    bytes: encoded.bytes.length,
+    bytes: bytes.length,
     inputBytes: source.bytes,
     score: value,
     downscaled: isDownscaledForScoring(source.image),
