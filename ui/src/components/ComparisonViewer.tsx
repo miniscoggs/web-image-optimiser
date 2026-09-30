@@ -1,40 +1,65 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { formatBytes } from "../../../src/cli/format.js";
 import type { PipelineOutput } from "../../../src/pipeline/types.js";
-import {
-  comparedOutputs,
-  currentOutput,
-  outputTitle,
-  qualitySliderOf,
-} from "../comparison.js";
+import { outputTitle } from "../comparison.js";
 import type { ComparisonFile } from "../comparison.js";
-import { displayName, imageUrl } from "../refs.js";
+import { keptRefs, paneKey, panesOf } from "../panes.js";
+import type { ViewPane } from "../panes.js";
+import { imageUrl } from "../refs.js";
 import useDevicePixelRatio from "../useDevicePixelRatio.js";
 import useDiffOverlays from "../useDiffOverlays.js";
 import type { DiffOverlay } from "../useDiffOverlays.js";
-import useQualityEncodes from "../useQualityEncodes.js";
-import useWrites from "../useWrites.js";
+import type useSaves from "../useSaves.js";
+import type useTargetSearches from "../useTargetSearches.js";
 import { FIT_VIEW, ZOOM_PRESETS, zoomTo } from "../viewport.js";
 import type { Viewport } from "../viewport.js";
 import ImageViewport from "./ImageViewport.js";
 import type { ImageViewportLayer } from "./ImageViewport.js";
 import OutputHeader from "./OutputHeader.js";
-import QualitySlider from "./QualitySlider.js";
+import SaveOutput from "./SaveOutput.js";
+import TargetSlider from "./TargetSlider.js";
 import WipeDivider from "./WipeDivider.js";
-import WriteOutput from "./WriteOutput.js";
 
 /**
- * {@link ComparisonViewer}'s props: the file to compare, and what closing the viewer does.
+ * What the viewer searches and saves with: the run's target, which the sliders start at, or
+ * `undefined` while the options are changing, when there are no sliders, and the app's slider and
+ * save state, which outlives the viewer.
  */
-type ComparisonViewerProps = { file: ComparisonFile; onClose: () => void };
+type ViewerTools = {
+  target: number | undefined;
+  searches: ReturnType<typeof useTargetSearches>;
+  saves: ReturnType<typeof useSaves>;
+};
 
 /**
- * An output's pane: the run's output, and what the pane shows now, which is a re-encode once
- * its quality slider has moved.
+ * {@link ComparisonViewer}'s props: the file to compare, its name, the width its outputs were
+ * capped at if any, whether a save has replaced the original, what shows above the grid, such as
+ * the file's notices, and the tools for searching and saving (without them the viewer only
+ * compares).
  */
-type OutputPane = { output: PipelineOutput; shown: PipelineOutput };
+type ComparisonViewerProps = {
+  file: ComparisonFile;
+  name: string;
+  maxWidth?: number;
+  replaced?: boolean;
+  children?: ReactNode;
+  tools?: ViewerTools;
+};
 
-const NO_OVERLAY: DiffOverlay = { shown: false, opacity: 1 };
+/**
+ * A pane that has an output to show.
+ */
+type ShownPane = ViewPane & { output: PipelineOutput };
+
+/**
+ * Returns whether a pane has an output to show.
+ *
+ * @param pane - The pane.
+ */
+function isShown(pane: ViewPane): pane is ShownPane {
+  return pane.output !== undefined;
+}
 
 /**
  * Returns what an output's pane draws: the output, then its diff map while that is shown.
@@ -59,16 +84,11 @@ function outputLayers(output: PipelineOutput, overlay: DiffOverlay) {
 }
 
 /**
- * Returns the viewer's hint: how to use the grid or the wipe, or, once a write has replaced the
- * original, that the comparison is out of date, which is why its tools and diffs go.
+ * Returns the viewer's hint: how to use the grid or the wipe.
  *
  * @param wiping - Whether an output is wiped against the original.
- * @param replaced - Whether a write has replaced the original.
  */
-function hintOf(wiping: boolean, replaced: boolean) {
-  if (replaced) {
-    return "The original has been replaced, so this comparison is out of date. Run it again to compare the new file.";
-  }
+function hintOf(wiping: boolean) {
   return wiping
     ? "Drag the divider to wipe between the original, on the left, and the output."
     : "Drag to pan, scroll to zoom, and click an output to wipe it against the original.";
@@ -94,123 +114,128 @@ function OriginalHeader({ file }: { file: ComparisonFile }) {
 }
 
 /**
- * Renders a file's comparison in a modal dialog: the original beside each output, zoomed and
+ * Renders a file's comparison as the main view: the original beside each output, zoomed and
  * panned together, or one output wiped against the original. Each output can show a diff
- * overlay, re-encode at another quality when lossy, and be written into the folder served.
- * Escape leaves a wipe, then closes the dialog.
+ * overlay, a target slider and a Save button, and the grid saves the suite. Escape leaves a
+ * wipe.
  *
- * @param props - The file, and what closing does.
+ * @param props - The file, its name, what shows above the grid, and the tools.
  */
-function ComparisonViewer({ file, onClose }: ComparisonViewerProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
+function ComparisonViewer({
+  file,
+  name,
+  maxWidth,
+  replaced = false,
+  children,
+  tools,
+}: ComparisonViewerProps) {
   const [view, setView] = useState<Viewport>(FIT_VIEW);
-  const [wiping, setWiping] = useState<string>();
+  const [wiping, setWiping] = useState<PipelineOutput["role"]>();
   const [divider, setDivider] = useState(0.5);
   const pixelRatio = useDevicePixelRatio();
-  const encodes = useQualityEncodes(file.input);
-  const writes = useWrites(file.input);
-  const panes = comparedOutputs(file).map((output): OutputPane => ({
-    output,
-    shown: currentOutput(output, encodes.encodeOf(output.path)?.encoded),
-  })); // each pane is keyed by its run output's path
+  const panes = panesOf(file, (role) =>
+    tools?.searches.searchOf(paneKey(file.input, role))
+  );
   const candidates = new Map(
-    panes.map(({ output, shown }) => [output.path, shown.path])
+    panes.filter(isShown).map(({ role, output }) => [role, output.path])
   );
   const { overlayOf, show, setOpacity } = useDiffOverlays(
     file.input,
-    candidates
+    candidates,
+    maxWidth
   );
   const image = useMemo(
     () => ({ width: file.width, height: file.height }),
     [file.width, file.height]
   );
-  const wiped = panes.find(({ output }) => output.path === wiping);
+  const wiped = panes.filter(isShown).find(({ role }) => role === wiping);
   const original = { src: imageUrl(file.input), alt: "Original" };
   const shared = { image, view, pixelRatio, onViewChange: setView };
+  const suite = keptRefs(panes);
 
   useEffect(() => {
-    if (dialog.current?.open === false) {
-      dialog.current.showModal(); // once, though strict mode runs this twice
+    if (wiping === undefined) {
+      return;
     }
-  }, []);
 
-  const toolsOf = ({ output, shown }: OutputPane) => {
-    const slider = qualitySliderOf(output);
-    const encode = encodes.encodeOf(output.path);
+    const leave = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setWiping(undefined);
+      }
+    };
+
+    window.addEventListener("keydown", leave);
+    return () => {
+      window.removeEventListener("keydown", leave);
+    };
+  }, [wiping]);
+
+  const paneTools = (pane: ViewPane) => {
+    if (tools === undefined || replaced) {
+      return null;
+    }
+
+    const key = paneKey(file.input, pane.role);
+    const { searches, saves } = tools;
+    const { format, output } = pane;
 
     return (
       <>
-        {slider !== undefined && (
-          <QualitySlider
-            title={outputTitle(output)}
-            range={slider.range}
-            quality={encode?.quality ?? slider.start}
-            pending={encode?.pending ?? false}
-            error={encode?.error}
-            onChange={(quality) => {
-              encodes.setQuality(output.path, slider.format, quality);
+        {format !== undefined && tools.target !== undefined && (
+          <TargetSlider
+            title={pane.title}
+            target={pane.search?.target ?? tools.target}
+            pending={pane.search?.pending === true}
+            error={pane.search?.error}
+            onChange={(target) => {
+              searches.setTarget(key, file.input, format, target);
             }}
             onReset={
-              encode === undefined
+              pane.search === undefined
                 ? undefined
                 : () => {
-                    encodes.reset(output.path);
+                    searches.reset(key);
                   }
             }
           />
         )}
-        <WriteOutput
-          state={writes.writeOf(shown.path)}
-          larger={shown.saving < 0}
-          onWrite={(replacing) => {
-            writes.write(shown.path, replacing);
-          }}
-        />
+        {output !== undefined && output.saving >= 0 && (
+          <SaveOutput
+            state={saves.saveOf(key)}
+            onSave={() => {
+              void saves.saveOutput(key, file.input, output.path);
+            }}
+          />
+        )}
       </>
     );
   };
 
-  const overlayFor = (pane: OutputPane) =>
-    writes.replacedOriginal ? NO_OVERLAY : overlayOf(pane.output.path); // a diff against the new file would mislead
-
-  const headerOf = (pane: OutputPane, onWipe?: () => void) => (
+  const headerOf = (pane: ShownPane, onWipe?: () => void) => (
     <OutputHeader
-      output={pane.shown}
-      overlay={overlayFor(pane)}
-      onShowDiff={
-        writes.replacedOriginal
-          ? undefined
-          : (shown) => {
-              show(pane.output.path, shown);
-            }
-      }
+      output={pane.output}
+      overlay={overlayOf(pane.role)}
+      onShowDiff={(shown) => {
+        show(pane.role, shown);
+      }}
       onDiffOpacity={(opacity) => {
-        setOpacity(pane.output.path, opacity);
+        setOpacity(pane.role, opacity);
       }}
       onWipe={onWipe}
     >
-      {!writes.replacedOriginal && toolsOf(pane)}
+      {pane.output.saving < 0 && (
+        <span className="muted">Larger than the original</span>
+      )}
+      {!pane.reached && <span className="muted">Target not reached</span>}
+      {pane.note !== undefined && <span className="muted">{pane.note}</span>}
+      {paneTools(pane)}
     </OutputHeader>
   );
 
   return (
-    <dialog
-      ref={dialog}
-      className="viewer"
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        if (wiped !== undefined) {
-          event.preventDefault();
-          setWiping(undefined);
-        }
-      }}
-      onClose={onClose}
-    >
+    <div className="viewer">
       <header className="viewer-bar">
-        <h2 id={titleId} className="viewer-title">
-          {displayName(file.input)}
-        </h2>
+        <h2 className="viewer-title">{name}</h2>
         <div className="zoom-presets" role="group" aria-label="Zoom">
           <button
             type="button"
@@ -240,7 +265,7 @@ function ComparisonViewer({ file, onClose }: ComparisonViewerProps) {
           </output>
         )}
         <p className="hint" role="status">
-          {hintOf(wiped !== undefined, writes.replacedOriginal)}
+          {hintOf(wiped !== undefined)}
         </p>
         <div className="viewer-actions">
           {wiped !== undefined && (
@@ -253,16 +278,29 @@ function ComparisonViewer({ file, onClose }: ComparisonViewerProps) {
               Back to grid
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              dialog.current?.close(); // which returns focus to the button that opened it
-            }}
-          >
-            Close
-          </button>
+          {tools !== undefined && !replaced && (
+            <button
+              type="button"
+              disabled={suite.length === 0 || tools.saves.suiteSaving}
+              onClick={() => {
+                void tools.saves.saveSuites(
+                  [{ original: file.input, candidates: suite }],
+                  0
+                );
+              }}
+            >
+              Save suite
+            </button>
+          )}
         </div>
       </header>
+      {replaced && (
+        <p className="notices" role="status">
+          The original was replaced, so these outputs are of the old one. Open
+          the image again to compare the new one.
+        </p>
+      )}
+      {children}
       {wiped === undefined ? (
         <div className="viewer-grid">
           <section className="pane" aria-label="Original">
@@ -270,21 +308,41 @@ function ComparisonViewer({ file, onClose }: ComparisonViewerProps) {
             <ImageViewport label="Original" layers={[original]} {...shared} />
           </section>
           {panes.map((pane) => {
-            const title = outputTitle(pane.output);
+            if (!isShown(pane)) {
+              return (
+                <section
+                  key={pane.role}
+                  className="pane"
+                  aria-label={pane.title}
+                >
+                  <header className="pane-header">
+                    <h3>{pane.title}</h3>
+                    <div className="pane-tools">
+                      {pane.note !== undefined && (
+                        <span className="muted">{pane.note}</span>
+                      )}
+                      {paneTools(pane)}
+                    </div>
+                  </header>
+                  <p className="pane-empty muted">
+                    {pane.format === undefined
+                      ? "No JPEG or PNG was smaller than the original."
+                      : `Move the slider to find the smallest ${pane.title} that reaches a target.`}
+                  </p>
+                </section>
+              );
+            }
+
             const select = () => {
-              setWiping(pane.output.path);
+              setWiping(pane.role);
             };
 
             return (
-              <section
-                key={pane.output.path}
-                className="pane"
-                aria-label={title}
-              >
+              <section key={pane.role} className="pane" aria-label={pane.title}>
                 {headerOf(pane, select)}
                 <ImageViewport
-                  label={title}
-                  layers={outputLayers(pane.shown, overlayFor(pane))}
+                  label={pane.title}
+                  layers={outputLayers(pane.output, overlayOf(pane.role))}
                   onSelect={select}
                   {...shared}
                 />
@@ -295,16 +353,16 @@ function ComparisonViewer({ file, onClose }: ComparisonViewerProps) {
       ) : (
         <section
           className="pane wipe"
-          aria-label={`Original against the ${outputTitle(wiped.output)}`}
+          aria-label={`Original against the ${wiped.title}`}
         >
           <div className="wipe-headers">
             <OriginalHeader file={file} />
             {headerOf(wiped)}
           </div>
           <ImageViewport
-            label={`Original against the ${outputTitle(wiped.output)}`}
+            label={`Original against the ${wiped.title}`}
             layers={[
-              ...outputLayers(wiped.shown, overlayFor(wiped)),
+              ...outputLayers(wiped.output, overlayOf(wiped.role)),
               { ...original, clipRight: 1 - divider },
             ]}
             {...shared}
@@ -313,9 +371,9 @@ function ComparisonViewer({ file, onClose }: ComparisonViewerProps) {
           </ImageViewport>
         </section>
       )}
-    </dialog>
+    </div>
   );
 }
 
 export default ComparisonViewer;
-export type { ComparisonViewerProps };
+export type { ComparisonViewerProps, ViewerTools };

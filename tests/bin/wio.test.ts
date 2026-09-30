@@ -17,9 +17,7 @@ import {
   compareResultSchema,
   runResultSchema,
 } from "../../src/schema/contract.js";
-import { filesResponseSchema } from "../../src/server/api.js";
 import { fixturePath } from "../fixtureManifest.js";
-import { findSessionFolder } from "../server/uiSession.js";
 
 const BIN = new URL("../../dist/bin/index.js", import.meta.url);
 const SKILL = new URL("../../SKILL.md", import.meta.url);
@@ -304,48 +302,25 @@ describe.skipIf(!existsSync(BIN))("wio, built", () => {
     expect(await listFiles()).toEqual(["images", "images/butterfly.jpg"]);
   });
 
-  it.skipIf(process.platform === "win32")(
-    "serves the UI until Ctrl+C, then removes its temp folder",
-    async () => {
-      await copyFixtures("images", [["logo-alpha.png", "logo.png"]]);
+  it("takes ui as a folder to optimise, like any other name", async () => {
+    await copyFixtures("ui", [["logo-alpha.png", "logo.png"]]);
 
-      let probe: Promise<{ folder: string; files: unknown }> | undefined;
-      const { exitCode, stdout } = await wio(["ui", "images", "--no-open"], {
-        onStdout: (child, printed) => {
-          if (!printed.endsWith("\n")) {
-            return; // the address may arrive in pieces
-          }
-          probe ??= (async () => {
-            try {
-              const url = printed.trim();
-              const exchange = await fetch(url, { redirect: "manual" });
-              const cookie = exchange.headers.get("set-cookie")?.split(";")[0];
-              const api = (pathname: string, init: RequestInit = {}) =>
-                fetch(new URL(pathname, url), {
-                  ...init,
-                  headers: { cookie: cookie ?? "" },
-                });
-              const files = filesResponseSchema.parse(
-                await (await api("/api/files")).json()
-              );
+    const { exitCode, stdout } = await wio([
+      "ui",
+      "--out-dir",
+      "web",
+      "--json",
+    ]);
 
-              return { folder: await findSessionFolder(api), files };
-            } finally {
-              interruptGroup(child); // even when the probe fails, so the test doesn't hang
-            }
-          })();
-        },
-        detached: true,
-      });
-      const probed = await probe;
-
-      expect(exitCode).toBe(130);
-      expect(stdout).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?token=/);
-      expect(probed?.files).toMatchObject({
-        files: [{ ref: "root/logo.png" }],
-      });
-      expect(probed?.folder).toMatch(/\.wio-ui-\w+$/);
-      expect(existsSync(probed?.folder ?? "")).toBe(false);
-    }
-  );
+    expect(exitCode).toBe(0);
+    expect(runResultSchema.parse(JSON.parse(stdout)).files).toMatchObject([
+      { status: "optimised" },
+    ]);
+    expect(await listFiles()).toEqual([
+      "ui",
+      "ui/logo.png",
+      "web",
+      "web/logo.webp",
+    ]);
+  });
 });

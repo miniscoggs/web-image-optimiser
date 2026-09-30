@@ -1,5 +1,6 @@
 {
   "name": "web-image-optimiser",
+  "productName": "Web Image Optimiser",
   "version": "0.1.0",
   "private": true,
   "description": "Perceptual image optimiser for the web: strips metadata, keeping copyright and licence fields, and writes the smallest PNG, JPEG, WebP, AVIF or SVG that stays above an SSIMULACRA 2 quality target.",
@@ -10,6 +11,10 @@
     "url": "git+https://github.com/miniscoggs/web-image-optimiser.git"
   },
   "type": "module",
+  "main": "desktop/build/main/index.js",
+  "imports": {
+    "#app": "./dist/app/index.js"
+  },
   "bin": {
     "web-image-optimiser": "./dist/bin/index.js",
     "wio": "./dist/bin/index.js"
@@ -19,15 +24,17 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\" && vite build ui",
+    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('wasm/pkg', 'dist/wasm', { recursive: true })\"",
+    "build:desktop": "npm run build && vite build -c desktop/vite.main.config.ts && vite build -c desktop/vite.preload.config.ts && vite build ui",
+    "package:desktop": "npm run build:desktop && node scripts/build-icons.mjs && electron-builder --config desktop/electron-builder.yml",
     "build:wasm": "node wasm/build.mjs",
-    "dev": "node scripts/dev.mjs",
+    "dev": "npm run build && node scripts/dev.mjs",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
-    "test": "vitest run && npm run typecheck",
-    "test:fast": "vitest run --exclude \"tests/golden/**\" --exclude \"tests/browser/**\" && npm run typecheck",
+    "test": "vitest run --exclude tests/desktop/app.test.ts && npm run typecheck",
+    "test:fast": "vitest run --exclude \"tests/golden/**\" --exclude tests/desktop/app.test.ts && npm run typecheck",
     "test:golden": "vitest run tests/golden/",
-    "test:browser": "vitest run tests/browser/",
+    "test:desktop": "vitest run tests/desktop/app.test.ts",
     "typecheck": "tsc -p tsconfig.test.json --noEmit && tsc -p ui/tsconfig.json"
   },
   "dependencies": {
@@ -50,6 +57,8 @@
     "@types/sax": "^1.2.7",
     "@types/semver": "^7.8.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.5.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",

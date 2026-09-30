@@ -1,37 +1,34 @@
 import type {
+  AppDiffResponse,
+  AppRightsResponse,
+  AppSearchResponse,
+  PixelFormat,
+} from "../../src/app/api.js";
+import type {
   PipelineEvent,
-  PipelineMode,
+  PipelineRightsOptions,
   PipelineTargetPreset,
 } from "../../src/pipeline/types.js";
-import type {
-  PixelFormat,
-  ServerCliEvent,
-  ServerDiffResponse,
-  ServerEncodeResponse,
-  ServerFilesResponse,
-  ServerUploadResponse,
-  ServerWriteResponse,
-} from "../../src/server/api.js";
 import readEvents from "./readEvents.js";
 
-// the session cookie rides along with every same-origin request
+// what this page calls on the app api: runs, target searches, diff maps and rights rewrites; opening and saving
+// go through the desktop bridge
 
 /**
- * The options a run in the UI takes, which are the CLI's `--to` and `--target`.
+ * What a run and a metadata rewrite take: the CLI's `--target`, `--max-width`, `--strip-all` and
+ * rights flags. A run is always in `suite` mode, which the API assumes.
  */
-type RunOptions = { to: PipelineMode; target: PipelineTargetPreset | number };
+type RunSettings = {
+  target: PipelineTargetPreset | number;
+  maxWidth?: number;
+  stripAll?: boolean;
+  rights?: PipelineRightsOptions;
+};
 
 /**
- * An event of a run in the UI: one of the contract's, or a `cli` event naming a finished file
- * that the copied command would fail or skip.
+ * A finished output to rewrite with other metadata: its original's ref, and its own.
  */
-type RunEvent = PipelineEvent | ({ type: "cli" } & ServerCliEvent);
-
-/**
- * What a write may replace, as the CLI's flags: the original with `inPlace`, and another
- * existing file with `overwrite`.
- */
-type WriteReplacing = { inPlace?: boolean; overwrite?: boolean };
+type RightsCandidate = { original: string; candidate: string };
 
 /**
  * Returns an error's message, for showing to the person.
@@ -43,7 +40,7 @@ function messageOf(error: unknown) {
 }
 
 /**
- * Turns a failed response into an error with the server's message.
+ * Turns a failed response into an error with the API's message.
  *
  * @param response - The response.
  */
@@ -51,88 +48,51 @@ async function failure(response: Response) {
   const body = (await response.json().catch(() => undefined)) as
     { error?: string } | undefined;
 
-  return new Error(body?.error ?? `The server answered ${response.status}`);
+  return new Error(body?.error ?? `The app answered ${response.status}`);
 }
 
 /**
- * Makes a request and returns its JSON body.
+ * Posts JSON and returns the response.
  *
  * @param path - The API path.
- * @param init - The request.
+ * @param body - The request's body.
+ * @param signal - Stops the request.
  */
-async function request<ResponseBody>(path: string, init?: RequestInit) {
-  const response = await fetch(path, init);
+async function postJson(path: string, body: unknown, signal?: AbortSignal) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
 
   if (!response.ok) {
     throw await failure(response);
   }
-  return (await response.json()) as ResponseBody;
+  return response;
 }
 
 /**
- * Posts JSON and returns the response's JSON body.
+ * Runs opened files in `suite` mode into the app's temp folder, yielding the run's events as
+ * they arrive.
  *
- * @param path - The API path.
- * @param body - The request's body.
- */
-function postJson<ResponseBody>(path: string, body: unknown) {
-  return request<ResponseBody>(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-/**
- * Lists the folder served's images, then the uploads.
- */
-function listFiles() {
-  return request<ServerFilesResponse>("/api/files");
-}
-
-/**
- * Uploads files into the server's temp folder.
- *
- * @param files - The files.
- * @returns The files as stored.
- */
-async function uploadFiles(files: File[]) {
-  const form = new FormData();
-
-  for (const file of files) {
-    form.append("file", file);
-  }
-
-  const body = await request<ServerUploadResponse>("/api/upload", {
-    method: "POST",
-    body: form,
-  });
-
-  return body.files;
-}
-
-/**
- * Runs files into the server's temp folder, yielding the run's events as they arrive, with a
- * `cli` event after each file the copied command would fail or skip.
- *
- * @param refs - The files.
- * @param options - The mode and target.
+ * @param refs - The opened files' refs.
+ * @param settings - The run's target, width and metadata options.
  * @param signal - Stops the run.
  */
 async function* runFiles(
   refs: string[],
-  options: RunOptions,
+  settings: RunSettings,
   signal: AbortSignal
-): AsyncGenerator<RunEvent> {
-  const response = await fetch("/api/optimise", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ files: refs, ...options }),
-    signal,
-  });
+): AsyncGenerator<PipelineEvent> {
+  const response = await postJson(
+    "/api/optimise",
+    { files: refs, ...settings },
+    signal
+  );
 
-  if (!response.ok || response.body === null) {
-    throw await failure(response);
+  if (response.body === null) {
+    throw new Error("The app sent no events");
   }
   for await (const message of readEvents(response.body)) {
     const data = JSON.parse(message.data) as unknown;
@@ -140,70 +100,68 @@ async function* runFiles(
     if (message.event === "error") {
       throw new Error((data as { error: string }).error);
     }
-    yield message.event === "cli"
-      ? { type: "cli", ...(data as ServerCliEvent) }
-      : (data as PipelineEvent);
+    yield data as PipelineEvent;
   }
 }
 
 /**
- * Draws where a candidate differs from its original, into the server's temp folder.
+ * Draws where a candidate differs from its original, into the app's temp folder.
  *
  * @param original - The original's ref.
  * @param candidate - The candidate's ref, an image of the same size.
+ * @param maxWidth - The width the candidate was made at, when the run capped it.
  * @returns The diff map's ref, a PNG.
  */
-async function diffImage(original: string, candidate: string) {
-  const body = await postJson<ServerDiffResponse>("/api/diff", {
-    original,
-    candidate,
-  });
-
-  return body.ref;
-}
-
-/**
- * Re-encodes a file at a quality into the server's temp folder, and scores it against the file.
- *
- * @param file - The file's ref.
- * @param format - The format, a lossy one.
- * @param quality - The quality.
- */
-function encodeImage(file: string, format: PixelFormat, quality: number) {
-  return postJson<ServerEncodeResponse>("/api/encode", {
-    file,
-    format,
-    quality,
-  });
-}
-
-/**
- * Saves a run's output or a re-encode into the folder served, beside its original.
- *
- * @param original - The original's ref.
- * @param candidate - The output's or re-encode's ref.
- * @param replacing - What the write may replace.
- * @returns Where it goes, and whether it was written or what blocked it.
- */
-function writeImage(
+async function diffImage(
   original: string,
   candidate: string,
-  replacing: WriteReplacing = {}
+  maxWidth?: number
 ) {
-  return postJson<ServerWriteResponse>("/api/write", {
+  const response = await postJson("/api/diff", {
     original,
     candidate,
-    ...replacing,
+    ...(maxWidth === undefined ? {} : { maxWidth }),
   });
+
+  return ((await response.json()) as AppDiffResponse).ref;
 }
 
-export {
-  diffImage,
-  encodeImage,
-  listFiles,
-  messageOf,
-  runFiles,
-  uploadFiles,
-  writeImage,
-};
-export type { RunEvent, RunOptions, WriteReplacing };
+/**
+ * Finds a file's smallest output in a format that reaches a target, as a suite would choose it.
+ *
+ * @param file - The opened file's ref.
+ * @param format - The format to search in.
+ * @param settings - The search's target, width and metadata options.
+ */
+async function searchTarget(
+  file: string,
+  format: PixelFormat,
+  settings: RunSettings
+) {
+  const response = await postJson("/api/search", {
+    file,
+    format,
+    ...settings,
+  });
+
+  return (await response.json()) as AppSearchResponse;
+}
+
+/**
+ * Writes the rights fields into outputs again, without re-encoding them.
+ *
+ * @param candidates - The outputs, with their originals.
+ * @param metadata - What happens to the metadata now.
+ * @returns Each output as rewritten, in order.
+ */
+async function rewriteRights(
+  candidates: RightsCandidate[],
+  metadata: Pick<RunSettings, "stripAll" | "rights">
+) {
+  const response = await postJson("/api/rights", { candidates, ...metadata });
+
+  return ((await response.json()) as AppRightsResponse).candidates;
+}
+
+export { diffImage, messageOf, rewriteRights, runFiles, searchTarget };
+export type { RunSettings };

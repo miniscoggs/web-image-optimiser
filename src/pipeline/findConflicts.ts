@@ -1,35 +1,6 @@
-import { open } from "node:fs/promises";
-import { SNIFF_BYTES, detectFormat } from "../inspect/detectFormat.js";
+import sniffFormat from "../inspect/sniffFormat.js";
 import { comparablePath, outputClaims } from "./destination.js";
 import type { PipelineMode } from "./types.js";
-
-/**
- * Reads enough of a file to detect its format from its bytes.
- *
- * @param filePath - The file.
- * @returns The format, or `undefined` when it can't be read or isn't supported, which the file
- * reports when its turn comes.
- */
-async function sniffFormat(filePath: string) {
-  try {
-    const handle = await open(filePath);
-
-    try {
-      const { buffer, bytesRead } = await handle.read(
-        Buffer.alloc(SNIFF_BYTES),
-        0,
-        SNIFF_BYTES,
-        0
-      );
-
-      return detectFormat(buffer.subarray(0, bytesRead));
-    } finally {
-      await handle.close();
-    }
-  } catch {
-    return undefined;
-  }
-}
 
 /**
  * Finds the inputs that can't run without clashing, each mapped to why: an output that could
@@ -56,7 +27,7 @@ async function findConflicts(
     }
   }
   for (const [index, input] of inputs.entries()) {
-    const format = await sniffFormat(input.path); // one at a time, so a huge batch can't run out of file handles
+    const format = await sniffFormat(input.path); // one at a time, so a huge batch can't run out of file handles; an unreadable file fails in its turn
     const paths =
       format === undefined
         ? []

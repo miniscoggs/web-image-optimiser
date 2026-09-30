@@ -10,7 +10,7 @@ import {
 } from "../rights/index.js";
 import type { ImageRights, ImageRightsField } from "../rights/index.js";
 import type { StripFormat, StripResult } from "../strip/index.js";
-import type { ChosenCandidate, RasterCandidate } from "./candidate.js";
+import type { Candidate, RasterCandidate } from "./candidate.js";
 import type { PipelineSettings } from "./resolveSettings.js";
 import type { PipelineRightsOptions, PipelineWarning } from "./types.js";
 
@@ -40,6 +40,7 @@ type SourceRights = {
 };
 
 const listFormat = new Intl.ListFormat("en-GB");
+const NO_RIGHTS: RightsTier = { rights: {}, added: [], packet: undefined };
 
 /**
  * Turns the rights options into fields.
@@ -71,9 +72,10 @@ function toTier(rights: ImageRights, added: ImageRightsField[]): RightsTier {
 }
 
 /**
- * Writes a packet into encoded bytes, replacing any XMP they hold.
+ * Writes a packet into encoded bytes, replacing any XMP they hold, or removes their XMP when
+ * there's no packet.
  *
- * @param bytes - The encoded image, holding no XMP.
+ * @param bytes - The encoded image.
  * @param format - Its format.
  * @param packet - The packet, if any.
  * @returns The bytes, or `undefined` when the format can't hold the packet.
@@ -83,9 +85,6 @@ function withPacket(
   format: StripFormat,
   packet: Buffer | undefined
 ) {
-  if (packet === undefined) {
-    return bytes;
-  }
   try {
     return setRights(bytes, format, packet);
   } catch (error) {
@@ -94,6 +93,29 @@ function withPacket(
     }
     throw error;
   }
+}
+
+/**
+ * Returns the rights an output carries when it has room for them: the file's own fields with
+ * the added ones, or none with `stripAll`.
+ *
+ * @param own - The fields the file carries.
+ * @param settings - Whether to strip everything, and the fields to add.
+ */
+function wantedRights(
+  own: ImageRights,
+  settings: Pick<PipelineSettings, "stripAll" | "rights">
+) {
+  if (settings.stripAll) {
+    return NO_RIGHTS;
+  }
+
+  const merged = mergeRights(own, toImageRights(settings.rights));
+  const added = IMAGE_RIGHTS_FIELDS.filter(
+    (field) => own[field] === undefined && merged[field] !== undefined
+  );
+
+  return toTier(merged, added);
 }
 
 /**
@@ -115,18 +137,13 @@ function createSourceRights(
   strip: StripResult,
   settings: Pick<PipelineSettings, "stripAll" | "rights">
 ): SourceRights {
-  const none: RightsTier = { rights: {}, added: [], packet: undefined };
+  const full = wantedRights(own, settings);
 
   if (settings.stripAll) {
-    return { tiers: [none], own, stripAll: true };
+    return { tiers: [full], own, stripAll: true };
   }
 
-  const merged = mergeRights(own, toImageRights(settings.rights));
-  const added = IMAGE_RIGHTS_FIELDS.filter(
-    (field) => own[field] === undefined && merged[field] !== undefined
-  );
-  const full = toTier(merged, added);
-  const ownTier = added.length === 0 ? full : toTier(own, []);
+  const ownTier = full.added.length === 0 ? full : toTier(own, []);
   const tiers: SourceRights["tiers"] = [full];
   const onlyRights =
     ownTier.packet !== undefined &&
@@ -136,7 +153,7 @@ function createSourceRights(
     tiers.push(ownTier);
   }
   if (tiers.at(-1)?.packet !== undefined && !onlyRights) {
-    tiers.push(none);
+    tiers.push(NO_RIGHTS);
   }
   return { tiers, own, stripAll: false };
 }
@@ -152,7 +169,10 @@ function withRights(
   candidate: RasterCandidate,
   tier: RightsTier
 ): RasterCandidate[] {
-  const bytes = withPacket(candidate.bytes, candidate.format, tier.packet);
+  const bytes =
+    tier.packet === undefined
+      ? candidate.bytes // which holds none already
+      : withPacket(candidate.bytes, candidate.format, tier.packet);
 
   return bytes === undefined
     ? []
@@ -169,7 +189,7 @@ function withRights(
  */
 function rightsWarnings(
   rights: SourceRights,
-  chosen: ChosenCandidate[]
+  chosen: Pick<Candidate, "format" | "rights">[]
 ): PipelineWarning[] {
   const wanted = rights.tiers[0].rights;
   const lacks = (carried: ImageRights = {}) =>
@@ -220,5 +240,47 @@ function rightsWarnings(
   ];
 }
 
-export { createSourceRights, rightsWarnings, withRights };
+/**
+ * Writes the rights an output carries when it has room for them into an encoded image, replacing
+ * any XMP it holds, as when the app's metadata options change. Unlike a run, it drops no field to
+ * keep the image smaller than its input, only the fields the format can't hold, as a run does:
+ * the added ones, then the file's own.
+ *
+ * @param bytes - The encoded image.
+ * @param format - Its format.
+ * @param own - The fields its input carries.
+ * @param settings - Whether to strip everything, and the fields to add.
+ * @returns The image, the fields it carries, which of them were added and the warnings.
+ */
+function applyRights(
+  bytes: Buffer,
+  format: StripFormat,
+  own: ImageRights,
+  settings: Pick<PipelineSettings, "stripAll" | "rights">
+) {
+  const wanted = wantedRights(own, settings);
+  const rights: SourceRights = {
+    tiers: [wanted],
+    own,
+    stripAll: settings.stripAll,
+  };
+  const applied = (written: Buffer, tier: RightsTier) => ({
+    bytes: written,
+    rights: tier.rights,
+    rightsAdded: tier.added,
+    warnings: rightsWarnings(rights, [{ format, rights: tier.rights }]),
+  });
+  const tiers = wanted.added.length > 0 ? [wanted, toTier(own, [])] : [wanted];
+
+  for (const tier of tiers) {
+    const written = withPacket(bytes, format, tier.packet);
+
+    if (written !== undefined) {
+      return applied(written, tier);
+    }
+  }
+  return applied(setRights(bytes, format, undefined), NO_RIGHTS); // removing the xmp always fits
+}
+
+export { applyRights, createSourceRights, rightsWarnings, withRights };
 export type { RightsTier, SourceRights };

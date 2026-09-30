@@ -223,6 +223,7 @@ export {
   IMAGE_PATTERN,
   comparablePath,
   formatOfExtension,
+  isInput,
   outputClaims,
   outputPath,
   planWrites,

@@ -51,16 +51,21 @@ type RasterSource = {
 };
 
 /**
- * Shrinks decoded pixels to a width, keeping the aspect ratio, with sharp's default Lanczos 3,
- * which premultiplies alpha.
+ * Shrinks decoded pixels wider than a maximum width to exactly that width, keeping the aspect
+ * ratio, with sharp's default Lanczos 3, which premultiplies alpha.
  *
- * @param image - The decoded pixels.
- * @param width - The new width, smaller than the image's.
+ * @param image - The decoded pixels, orientation applied, so the width is as displayed.
+ * @param width - The maximum width, if any.
+ * @returns The shrunk pixels, or the image itself when it is no wider.
  */
-async function resizeToWidth(
+async function fitToWidth(
   image: MetricsImage,
-  width: number
+  width: number | undefined
 ): Promise<MetricsImage> {
+  if (width === undefined || image.width <= width) {
+    return image;
+  }
+
   const height = Math.max(1, Math.round((image.height * width) / image.width));
   const raw = {
     width: image.width,
@@ -94,10 +99,10 @@ async function createRasterSource(
   >,
   signal: AbortSignal | undefined
 ): Promise<RasterSource> {
-  const { target, maxWidth = Infinity } = settings;
+  const { target, maxWidth } = settings;
   const decoded = await readOrFail(() => decodeForScoring(bytes));
-  const resized = decoded.width > maxWidth; // the width as displayed, after orientation
-  const image = resized ? await resizeToWidth(decoded, maxWidth) : decoded;
+  const image = await fitToWidth(decoded, maxWidth);
+  const resized = image !== decoded;
   const strip = stripLossless(bytes, info);
   const profile: StripRemovedKind[] = info.icc === null ? [] : ["icc"];
   const reencodeStripped = new Set([
@@ -310,5 +315,5 @@ async function rasterCandidates(format: EncodeFormat, source: RasterSource) {
   }
 }
 
-export { createRasterSource, rasterCandidates, stripCandidate };
+export { createRasterSource, fitToWidth, rasterCandidates, stripCandidate };
 export type { RasterSource };

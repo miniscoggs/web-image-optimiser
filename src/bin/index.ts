@@ -7,34 +7,14 @@
  * leaves no temp files, then exits 130 or 143. A second signal exits at once. Output whose reader
  * has gone, such as a pipe into `head`, stops a run in progress the same way, exiting 141.
  */
-import { spawn } from "node:child_process";
 import { constants } from "node:os";
 import { runCli } from "../cli/index.js";
-
-const OPENERS: Partial<Record<NodeJS.Platform, string>> = {
-  win32: "explorer.exe",
-  darwin: "open",
-};
 
 const EXIT_OUTPUT_CLOSED = 141; // 128 + SIGPIPE's number on POSIX, what a shell reports for a command whose reader stopped
 
 const controller = new AbortController();
 let received: NodeJS.Signals | undefined;
 let outputClosed = false;
-
-/**
- * Opens an address in the default browser, ignoring a failure, since `wio ui` also prints
- * its address. It is the file URL of the UI's forwarding page, not the address with its token.
- *
- * @param url - The address.
- */
-function openUrl(url: string) {
-  const opener = OPENERS[process.platform] ?? "xdg-open";
-  const child = spawn(opener, [url], { detached: true, stdio: "ignore" });
-
-  child.on("error", () => undefined);
-  child.unref();
-}
 
 /**
  * Stops the run on the first signal, and exits at once on the next.
@@ -77,7 +57,6 @@ try {
     color: process.stdout.isTTY && process.stdout.hasColors(process.env), // false for NO_COLOR
     progress: process.stderr.isTTY,
     signal: controller.signal,
-    openUrl,
   });
 } catch (error) {
   if (received !== undefined) {

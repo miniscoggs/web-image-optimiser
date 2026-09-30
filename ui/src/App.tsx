@@ -1,216 +1,328 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { DragEvent } from "react";
 import { formatTotals } from "../../src/cli/format.js";
-import type { ServerListedFile } from "../../src/server/api.js";
-import { listFiles, messageOf, uploadFiles } from "./api.js";
-import type { RunOptions } from "./api.js";
-import type { ComparisonFile } from "./comparison.js";
+import type { PipelineWarning } from "../../src/pipeline/types.js";
+import { canCompare, cappedWidth } from "./comparison.js";
 import ComparisonViewer from "./components/ComparisonViewer.js";
-import CopyButton from "./components/CopyButton.js";
-import FileList from "./components/FileList.js";
-import OptionsPanel from "./components/OptionsPanel.js";
-import ResultsTable from "./components/ResultsTable.js";
-import { cliBlockNote, cliCommand } from "./copyText.js";
-import downloadJson from "./downloadJson.js";
-import { toRunResult } from "./runState.js";
-import type { RunState } from "./runState.js";
-import useRun from "./useRun.js";
-
-const DEFAULT_OPTIONS: RunOptions = { to: "suite", target: "web" }; // not the cli's webp and high: the ui prepares a web page's images (the user's decision)
+import type { ViewerTools } from "./components/ComparisonViewer.js";
+import Landing from "./components/Landing.js";
+import OptionsBar from "./components/OptionsBar.js";
+import SlideOver from "./components/SlideOver.js";
+import type { OpenedImage } from "./images.js";
+import { keptRefs, paneKey, paneKeysOf, panesOf, runTarget } from "./panes.js";
+import useAppOptions from "./useAppOptions.js";
+import useImages from "./useImages.js";
+import useSaves from "./useSaves.js";
+import useTargetSearches from "./useTargetSearches.js";
 
 /**
- * Describes where a run is: what to do first, its progress, its totals, or why it ended.
- *
- * @param run - The run.
+ * Files the bridge opened.
  */
-function statusOf(run: RunState) {
-  const done = run.files.filter((file) => file.result !== undefined).length;
-  const progress = `${done} of ${run.files.length} files done`;
+type Opened = Awaited<ReturnType<Window["wio"]["openDropped"]>>;
 
-  switch (run.status) {
-    case "idle":
-      return "Pick images and press Run. Outputs go to a temp folder, and nothing in the folder changes until you Write one.";
-    case "running":
-      return `Optimising: ${progress}`;
-    case "done":
-      return run.totals === undefined ? progress : formatTotals(run.totals);
-    case "stopped":
-      return `Stopped: ${progress}`;
-    case "failed":
-      return `The run failed: ${run.error ?? "unknown error"}`;
-  }
+/**
+ * Returns what to tell the person about files that weren't opened.
+ *
+ * @param opened - The files, as the bridge answered.
+ */
+function refusalsOf(opened: Opened) {
+  const messages = opened.files.flatMap((file) =>
+    "error" in file ? [`${file.name}: ${file.error}`] : []
+  );
+
+  return messages.length === 0 ? undefined : messages.join(" ");
 }
 
 /**
- * Renders the comparison UI: the images to pick from, the run's options, its results, and a
- * file's comparison once opened.
+ * Returns whether a drag carries files, rather than text or a link.
+ *
+ * @param event - The drag event.
+ */
+function carriesFiles(event: DragEvent) {
+  return event.dataTransfer.types.includes("Files");
+}
+
+/**
+ * Renders an image's warnings as notices, with an Add rights info button on `W_NO_RIGHTS`.
+ *
+ * @param props - The warnings, and what the button does.
+ */
+function Notices({
+  warnings,
+  onAddRights,
+}: {
+  warnings: PipelineWarning[];
+  onAddRights: () => void;
+}) {
+  if (warnings.length === 0) {
+    return null;
+  }
+  return (
+    <ul className="notices">
+      {warnings.map((warning) => (
+        <li key={`${warning.code} ${warning.message}`}>
+          <code className="code">{warning.code}</code> {warning.message}
+          {warning.code === "W_NO_RIGHTS" && (
+            <button type="button" onClick={onAddRights}>
+              Add rights info
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Renders the main view for an image: its grid once done, its progress while it waits, or its
+ * error.
+ *
+ * @param props - The image, the viewer's tools, and what Add rights info does.
+ */
+function ImageView({
+  image,
+  tools,
+  onAddRights,
+}: {
+  image: OpenedImage;
+  tools: ViewerTools;
+  onAddRights: () => void;
+}) {
+  const { result } = image;
+
+  if (result !== undefined && canCompare(result) && image.status === "done") {
+    return (
+      <ComparisonViewer
+        key={image.ref}
+        file={result}
+        name={image.name}
+        maxWidth={cappedWidth(result)}
+        replaced={image.replaced}
+        tools={tools}
+      >
+        <Notices warnings={result.warnings} onAddRights={onAddRights} />
+      </ComparisonViewer>
+    );
+  }
+  return (
+    <section className="image-message" aria-label={image.name}>
+      <h2>{image.name}</h2>
+      {image.status === "failed" ? (
+        <p className="problem" role="alert">
+          {image.error}
+        </p>
+      ) : image.status === "done" ? (
+        <p>Nothing to compare: the original was kept.</p>
+      ) : (
+        <p role="status">
+          <span className="spinner" aria-hidden="true" />
+          {image.status === "processing" ? "Processing" : "Waiting"}
+        </p>
+      )}
+      {result !== undefined && (
+        <Notices warnings={result.warnings} onAddRights={onAddRights} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Renders the desktop app: a drop zone to start with, then each opened image processed at the
+ * `web` target and shown as a comparison grid, with a slide-over listing them when there are
+ * several.
  */
 function App() {
-  const [root, setRoot] = useState<string>();
-  const [files, setFiles] = useState<ServerListedFile[]>([]);
-  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [options, setOptions] = useState(DEFAULT_OPTIONS);
-  const [problem, setProblem] = useState<string>();
-  const [uploading, setUploading] = useState(false);
-  const [listings, setListings] = useState(0);
-  const [comparing, setComparing] = useState<ComparisonFile>();
-  const [ranCommand, setRanCommand] = useState<string>();
-  const { run, start, stop } = useRun();
+  const { options, setOptions, settings, loaded } = useAppOptions();
+  const { images, running, totals, problem, add, markReplaced } =
+    useImages(settings);
+  const [refused, setRefused] = useState<string>();
+  const [selected, setSelected] = useState<string>();
+  const [listShown, setListShown] = useState(true);
+  const [rightsOpen, setRightsOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const searches = useTargetSearches(settings);
+  const saves = useSaves(markReplaced);
 
-  useEffect(() => {
-    let current = true;
+  const open = (opened: Opened) => {
+    const files = opened.files.flatMap((file) =>
+      "ref" in file
+        ? [{ ref: file.ref, name: file.name, bytes: file.bytes }]
+        : []
+    );
 
-    listFiles().then(
-      (listing) => {
-        if (current) {
-          setRoot(listing.root);
-          setFiles(listing.files);
-          setProblem(undefined);
-        }
-      },
-      (error: unknown) => {
-        if (current) {
-          setProblem(`Couldn't list the images: ${messageOf(error)}`);
+    for (const { ref } of files) {
+      if (
+        images.some((image) => image.ref === ref && image.replaced === true)
+      ) {
+        for (const pane of paneKeysOf(ref)) {
+          searches.reset(pane); // they were made from the old original, which runs again
+          saves.forget(pane);
         }
       }
-    );
-    return () => {
-      current = false;
-    };
-  }, [listings]);
-
-  const upload = async (added: File[]) => {
-    if (added.length === 0) {
-      return;
     }
-    setUploading(true);
-    try {
-      const stored = await uploadFiles(added);
+    add(files);
+    setRefused(refusalsOf(opened));
+  };
+  const openRef = useRef(open);
 
-      setFiles((current) => [...current, ...stored]);
-      setProblem(undefined);
-    } catch (error) {
-      setProblem(`Couldn't upload: ${messageOf(error)}`);
-    } finally {
-      setUploading(false);
-    }
+  useEffect(() => {
+    openRef.current = open;
+  });
+  useEffect(
+    () =>
+      window.wio.onFilesOpened((opened) => {
+        openRef.current(opened);
+      }),
+    []
+  );
+
+  const browse = () => {
+    void window.wio.openFiles().then((opened) => {
+      if (opened.outcome === "opened") {
+        open(opened);
+      }
+    });
   };
 
-  const running = run.status === "running";
-  const picked = files
-    .map((file) => file.ref)
-    .filter((ref) => !excluded.has(ref));
-  const command =
-    root === undefined || picked.length === 0
-      ? undefined
-      : cliCommand(picked, options, root);
-  const note =
-    run.status === "done" && command === ranCommand
-      ? cliBlockNote(run.files)
-      : undefined; // only while the command shown is the one run
-  const report = toRunResult(run);
-  const finished = run.files.flatMap((file) => file.result ?? []);
+  const saveAll = () => {
+    const suites = images.flatMap(({ ref, status, result, replaced }) => {
+      if (
+        status !== "done" ||
+        result === undefined ||
+        !canCompare(result) ||
+        replaced === true
+      ) {
+        return [];
+      }
+
+      const panes = panesOf(result, (role) =>
+        searches.searchOf(paneKey(ref, role))
+      );
+      const candidates = keptRefs(panes);
+
+      return candidates.length === 0 ? [] : [{ original: ref, candidates }];
+    });
+
+    if (suites.length === 0) {
+      saves.setNote({ text: "Nothing to save yet", failed: false });
+      return;
+    }
+    void saves.saveSuites(suites, images.length - suites.length);
+  };
+  const saveAllRef = useRef(saveAll);
+
+  useEffect(() => {
+    saveAllRef.current = saveAll;
+  });
+  useEffect(
+    () =>
+      window.wio.onMenuCommand((command) => {
+        if (command === "save-all") {
+          saveAllRef.current();
+        }
+      }),
+    []
+  );
+
+  const tools: ViewerTools = {
+    target: settings === undefined ? undefined : runTarget(settings),
+    searches,
+    saves,
+  };
+  const current = images.find((image) => image.ref === selected) ?? images[0];
+  const summary =
+    totals === undefined || running ? undefined : formatTotals(totals);
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      data-dragging={dragging || undefined}
+      onDragOver={(event) => {
+        if (carriesFiles(event)) {
+          event.preventDefault();
+          setDragging(true);
+        }
+      }}
+      onDragLeave={() => {
+        setDragging(false);
+      }}
+      onDrop={(event) => {
+        setDragging(false);
+        if (carriesFiles(event)) {
+          event.preventDefault();
+          void window.wio.openDropped([...event.dataTransfer.files]).then(open);
+        }
+      }}
+    >
       <header className="app-header">
         <h1>wio</h1>
-        <span className="root" title={root}>
-          {root}
-        </span>
+        {images.length > 1 && (
+          <button
+            type="button"
+            aria-pressed={listShown}
+            onClick={() => {
+              setListShown((shown) => !shown);
+            }}
+          >
+            Images
+          </button>
+        )}
+        {images.length > 0 && (
+          <button type="button" onClick={browse}>
+            Open...
+          </button>
+        )}
+        <OptionsBar
+          key={String(loaded)}
+          options={options}
+          onChange={setOptions}
+          rightsOpen={rightsOpen}
+          onRightsOpenChange={setRightsOpen}
+        />
       </header>
-      <FileList
-        files={files}
-        excluded={excluded}
-        uploading={uploading}
-        onExcludedChange={setExcluded}
-        onUpload={(added) => void upload(added)}
-        onRefresh={() => {
-          setListings((count) => count + 1);
-        }}
-      />
+      {images.length > 1 && listShown && (
+        <SlideOver
+          images={images}
+          selected={current?.ref}
+          summary={summary}
+          onSelect={setSelected}
+          onOpenMore={browse}
+          onSaveAll={saveAll}
+        />
+      )}
       <main className="workspace">
         {problem !== undefined && (
           <p className="problem" role="alert">
             {problem}
           </p>
         )}
-        <section className="card run-setup" aria-label="Run">
-          <OptionsPanel
-            options={options}
-            disabled={running}
-            onChange={setOptions}
-          />
-          <div className="run-button">
-            {running ? (
-              <button type="button" onClick={stop}>
-                Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="primary"
-                disabled={picked.length === 0}
-                onClick={() => {
-                  setRanCommand(command);
-                  void start(picked, options);
-                }}
-              >
-                Run {picked.length} {picked.length === 1 ? "image" : "images"}
-              </button>
+        {saves.note !== undefined && (
+          <p
+            className={saves.note.failed ? "problem" : "save-note"}
+            role={saves.note.failed ? "alert" : "status"}
+          >
+            {saves.note.text}
+          </p>
+        )}
+        {current === undefined ? (
+          <Landing onBrowse={browse} problem={refused} />
+        ) : (
+          <>
+            {refused !== undefined && (
+              <p className="problem" role="alert">
+                {refused}
+              </p>
             )}
-          </div>
-          <div className="command">
-            <code title={command}>
-              {command ?? "Pick an image to see the command"}
-            </code>
-            <CopyButton label="Copy CLI command" text={command} />
-          </div>
-          {note !== undefined && (
-            <div className="cli-note" role="note">
-              <p>{note.summary}</p>
-              <ul>
-                {note.lines.map((line) => (
-                  <li key={line.ref}>{line.text}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-        <section className="card run-results" aria-label="Results">
-          <div className="run-status">
-            <p role="status">{statusOf(run)}</p>
-            {running && (
-              <progress
-                value={finished.length}
-                max={run.files.length}
-                aria-label="Files done"
-              />
-            )}
-            <div className="run-actions">
-              <button
-                type="button"
-                disabled={report === undefined}
-                onClick={() => {
-                  downloadJson("wio-report.json", report);
-                }}
-              >
-                Export report
-              </button>
-            </div>
-          </div>
-          {run.files.length > 0 && (
-            <ResultsTable files={run.files} onCompare={setComparing} />
-          )}
-        </section>
+            <ImageView
+              image={current}
+              tools={tools}
+              onAddRights={() => {
+                setRightsOpen(true);
+              }}
+            />
+          </>
+        )}
       </main>
-      {comparing !== undefined && (
-        <ComparisonViewer
-          file={comparing}
-          onClose={() => {
-            setComparing(undefined);
-          }}
-        />
-      )}
     </div>
   );
 }

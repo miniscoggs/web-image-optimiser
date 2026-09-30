@@ -1,57 +1,47 @@
-// Serves the UI with hot reload on 127.0.0.1:5173 and its API from a wio ui server on 5174, in
-// one process, then opens the page signed in. The API runs from dist, so run `npm run build`
-// first, and again after changing src/. Usage: npm run dev [-- <folder>], serving fixtures/
-// by default.
+// Runs the desktop app in development: builds its main process and preload, serves the page
+// with hot reload from Vite on 127.0.0.1:5173, and launches Electron, whose wio: protocol passes
+// the page's requests on to Vite. The app API runs from dist, which `npm run dev` builds first,
+// so run it again after changing src/ or desktop/. Quit the app to stop: Ctrl+C stops it at once,
+// which can leave its temp folder behind. Usage: npm run dev
 import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createServer } from "vite";
-import { startUiServer } from "../dist/server/index.js";
-import { forwardingPage } from "../dist/server/http.js";
+import { fileURLToPath } from "node:url";
+import electron from "electron";
+import { build, createServer } from "vite";
 
-const API_PORT = 5174; // the port ui/vite.config.ts proxies to
-const OPENERS = { win32: "explorer.exe", darwin: "open" }; // as src/bin/index.ts opens wio ui
+const HOST = "127.0.0.1";
+const PORT = 5173;
 
-const root = path.resolve(process.argv[2] ?? "fixtures");
-const api = await startUiServer({ root, port: API_PORT });
-let vite;
+const pathOf = (relative) => fileURLToPath(new URL(relative, import.meta.url));
 
-try {
-  vite = await createServer({
-    root: fileURLToPath(new URL("../ui/", import.meta.url)),
-    plugins: [
-      {
-        name: "wio-ui-server",
-        async closeServer({ reason }) {
-          if (reason === "close") {
-            await api.close(); // vite exits once closed on SIGTERM, so the api closes as part of that
-          }
-        },
-      },
-    ],
-  });
-  await vite.listen();
-} catch (error) {
-  await (vite?.close() ?? api.close());
-  throw error;
+for (const config of ["vite.main.config.ts", "vite.preload.config.ts"]) {
+  await build({ configFile: pathOf(`../desktop/${config}`) });
 }
 
-process.once("SIGINT", () => {
-  void vite.close().finally(() => process.exit(130));
+const vite = await createServer({
+  root: pathOf("../ui/"),
+  server: {
+    host: HOST,
+    port: PORT,
+    strictPort: true,
+    hmr: { host: HOST, port: PORT }, // the page's own origin is wio://app
+  },
 });
 
-const signIn = new URL(api.url); // the api's address with the token, through the proxy on vite's port
+await vite.listen();
 
-signIn.port = String(vite.config.server.port);
-const page = path.join(path.dirname(api.openFile), "dev.html"); // beside wio ui's own page, where only this user can read the token
+const env = { ...process.env, WIO_DEV_SERVER: `http://${HOST}:${PORT}` };
 
-await writeFile(page, forwardingPage(signIn.href), { mode: 0o600 });
-vite.printUrls();
-console.log(`  API:     wio ui serving ${root}\n  Sign in: ${signIn}\n`);
-spawn(OPENERS[process.platform] ?? "xdg-open", [pathToFileURL(page).href], {
-  detached: true,
-  stdio: "ignore",
-})
-  .on("error", () => undefined) // the sign-in address is printed above
-  .unref();
+delete env.ELECTRON_RUN_AS_NODE; // set when run from inside another electron app, such as an editor
+
+const app = spawn(electron, ["."], {
+  cwd: pathOf("../"),
+  env,
+  stdio: "inherit",
+});
+
+app.on("exit", (code) => {
+  void vite.close().finally(() => process.exit(code ?? 0));
+});
+process.once("SIGINT", () => {
+  app.kill("SIGINT");
+});

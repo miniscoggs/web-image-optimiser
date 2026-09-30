@@ -42,8 +42,8 @@ const WARNING_CODES = [
  * - `E_READ`: the input file can't be read, for example because it doesn't exist.
  * - `E_TOO_LARGE_FOR_FORMAT`: the image is too large for an output format, such as WebP's
  *   16383-pixel limit or AVIF's 16384. Other formats can still be tried.
- * - `E_TOO_SMALL_TO_SCORE`: `compareFiles` only: the images differ but are under 8x8 pixels,
- *   too small to score.
+ * - `E_TOO_SMALL_TO_SCORE`: `compareFiles` and the app's target searches only: the images
+ *   differ, or the format is lossy, but the image is under 8x8 pixels, too small to score.
  * - `E_UNSUPPORTED_FORMAT`: the file isn't a PNG, JPEG, WebP, AVIF or SVG, or `compareFiles`
  *   was given an SVG.
  * - `E_WRITE`: an output can't be written, for example because the folder is read-only.

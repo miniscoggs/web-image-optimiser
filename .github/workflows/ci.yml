@@ -1,9 +1,10 @@
 name: CI
 
-# Every run lints, builds and runs the fast tests on every leg, and the browser test on one. The
-# golden tests, which encode and score every fixture in every mode, run on Ubuntu when a pull
-# request changes engine files, and on every OS for a release pull request (one that changes the
-# version) or a manual run. "CI passed" is the one check to require.
+# Every run lints, builds and runs the fast tests on every leg. The golden tests, which encode and
+# score every fixture in every mode, run on Ubuntu when a pull request changes engine files, and on
+# every OS for a release pull request (one that changes the version) or a manual run. The desktop
+# app's end-to-end test runs on Ubuntu when a pull request changes its files, and for a release
+# pull request or a manual run. "CI passed" is the one check to require.
 
 on:
   pull_request:
@@ -26,6 +27,7 @@ jobs:
     outputs:
       golden-os: ${{ steps.scope.outputs.golden-os }}
       release: ${{ steps.scope.outputs.release }}
+      desktop: ${{ steps.scope.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -60,8 +62,6 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run test:fast
-      - if: matrix.os == 'ubuntu-latest' && matrix.node == 24
-        run: npm run test:browser # one leg is enough, in the google chrome the runner has
 
   release-version:
     name: release version
@@ -102,10 +102,32 @@ jobs:
       - run: npm ci
       - run: npm run test:golden
 
+  desktop:
+    name: desktop (ubuntu-latest)
+    needs: scope
+    if: needs.scope.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:desktop
+      - name: Download Electron
+        run: node -e "require('electron')" # electron fetches its binary on first use, not on install
+      - name: Let Chromium's sandbox create user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 # ubuntu 24.04's apparmor refuses them by default
+      - run: xvfb-run --auto-servernum npm run test:desktop
+
   passed:
     name: CI passed
     if: always()
-    needs: [scope, checks, release-version, golden]
+    needs: [scope, checks, release-version, golden, desktop]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

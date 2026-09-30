@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { PipelineFileResult } from "../../src/pipeline/types.js";
 import {
   canCompare,
+  cappedWidth,
   comparedOutputs,
-  currentOutput,
   outputTitle,
-  qualitySliderOf,
 } from "../../ui/src/comparison.js";
-import { sameResult, suiteResult } from "./results.js";
+import { suiteResult } from "./results.js";
 
 describe("canCompare", () => {
   it("needs outputs and the image's size", () => {
@@ -27,15 +26,15 @@ describe("canCompare", () => {
 });
 
 describe("comparedOutputs", () => {
-  it("orders a suite's outputs WebP, AVIF, then the fallback", () => {
+  it("orders a suite's outputs AVIF, WebP, then the fallback", () => {
     const file = suiteResult();
 
     if (!canCompare(file)) {
       throw new Error("the suite result should be comparable");
     }
     expect(comparedOutputs(file).map((output) => output.role)).toEqual([
-      "webp",
       "avif",
+      "webp",
       "fallback",
     ]);
   });
@@ -51,61 +50,19 @@ describe("outputTitle", () => {
   });
 });
 
-describe("qualitySliderOf", () => {
-  it("starts a lossy output at its quality, another at the top of the range, and an SVG at none", () => {
-    const [avif, webp, png] = suiteResult().outputs;
-    const [jpegStrip] = sameResult().outputs;
+describe("cappedWidth", () => {
+  it("gives the width outputs were capped at, and none when they are as wide as the original", () => {
+    const file = suiteResult();
 
-    expect(avif && qualitySliderOf(avif)).toEqual({
-      format: "avif",
-      range: [20, 90],
-      start: 52,
-    });
-    expect(webp && qualitySliderOf(webp)?.start).toBe(71);
-    expect(jpegStrip && qualitySliderOf(jpegStrip)).toEqual({
-      format: "jpeg",
-      range: [40, 95],
-      start: 95,
-    });
-    expect(png && qualitySliderOf(png)).toEqual({
-      format: "png",
-      range: [1, 100],
-      start: 100, // lossless, so re-encoding it as a palette starts at the top
-    });
-    expect(
-      png && qualitySliderOf({ ...png, format: "svg", method: "svgo" })
-    ).toBeUndefined();
-  });
-});
-
-describe("currentOutput", () => {
-  it("describes a re-encode as the output it replaces in the pane", () => {
-    const [, webp] = suiteResult().outputs;
-
-    if (webp === undefined) {
-      throw new Error("the suite result should have a WebP");
+    if (!canCompare(file)) {
+      throw new Error("the suite result should be comparable");
     }
-    expect(currentOutput(webp, undefined)).toBe(webp);
+    expect(cappedWidth(file)).toBeUndefined();
     expect(
-      currentOutput(webp, {
-        ref: "session/encodes/1/cat.webp",
-        format: "webp",
-        quality: 55,
-        bytes: 8_000,
-        saving: 0.92,
-        score: 78.5,
-        verdict: "high",
-        warnings: [],
+      cappedWidth({
+        ...file,
+        outputs: file.outputs.map((output) => ({ ...output, width: 32 })),
       })
-    ).toEqual({
-      ...webp,
-      path: "session/encodes/1/cat.webp",
-      method: "lossy",
-      quality: 55,
-      bytes: 8_000,
-      saving: 0.92,
-      score: 78.5,
-      verdict: "high",
-    });
+    ).toBe(32);
   });
 });

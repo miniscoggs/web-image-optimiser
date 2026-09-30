@@ -1,6 +1,6 @@
 # Instructions
 
-web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, JPEG, WebP, AVIF and SVG, strips metadata apart from the copyright, licence and AI-origin fields Google Images reads, and writes the smallest output that stays above an SSIMULACRA 2 quality target. It is an application, a CLI and a local comparison UI, not a library: `package.json` is private, nothing is published to npm, and no other project imports its modules. It needs no external binaries, and must behave the same on Windows and macOS.
+web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, JPEG, WebP, AVIF and SVG, strips metadata apart from the copyright, licence and AI-origin fields Google Images reads, and writes the smallest output that stays above an SSIMULACRA 2 quality target. It is an application, a CLI and an Electron desktop app, not a library: `package.json` is private, nothing is published to npm, and no other project imports its modules. It needs no external binaries, and must behave the same on Windows and macOS.
 
 ## Working in this repo
 
@@ -16,14 +16,16 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 
 | Command                      | Purpose                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run build`              | Compile `src/` into `dist/`, copy `wasm/pkg` into `dist/wasm`, and build the UI in `ui/` into `dist/ui` with Vite |
+| `npm run build`              | Compile `src/` into `dist/`, and copy `wasm/pkg` into `dist/wasm`                                        |
 | `npm link`                   | After `npm run build`, put `wio` and `web-image-optimiser` on the PATH, running this clone's `dist/`. It is how `wio` is installed, since it is never published |
-| `npm run dev [-- <folder>]`  | After `npm run build`, serve the UI with hot reload on `http://127.0.0.1:5173` and its API from a `wio ui` server on 5174, in one process, serving `fixtures/` or the folder given, and open the page signed in. The API runs from `dist`, so rebuild after changing `src/` |
+| `npm run build:desktop`      | `npm run build`, then bundle the desktop app's main process and preload with Vite into `desktop/build/main` and `desktop/build/preload`, and build the React UI into `desktop/build/renderer`, whose scripts `tests/dist.test.ts` then checks hold no engine code. `npx electron .` then runs the built app |
+| `npm run package:desktop`    | `npm run build:desktop`, then render the app's icons (`scripts/build-icons.mjs`) into `desktop/build/icons/`, and build this OS's unsigned installer with electron-builder (`desktop/electron-builder.yml`) into `release/`: an NSIS `.exe` on Windows, a `.dmg` on macOS. Add `-- --dir` for only the unpacked app. In an editor that watches the folder, such as VS Code, electron-builder's rename of the Electron it unpacks fails with `EPERM`: add `--config.directories.output=<a folder outside the repo>` |
+| `npm run dev`                | `npm run build`, then run the desktop app with the page served by Vite with hot reload (`scripts/dev.mjs`). Run it again after changing `src/` or `desktop/`, and quit the app to stop it |
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
-| `npm test`                   | Every test, then `npm run typecheck`. The golden tests make it take a few minutes                          |
-| `npm run test:fast`          | Every test except the golden and browser tests (about 30 s), then the type-check. Use it while iterating  |
-| `npm run test:browser`       | Only the Playwright flow in `tests/browser/`, which drives the built UI in Google Chrome. Run `npm run build` first |
+| `npm test`                   | Every test except the desktop app's end-to-end test, then `npm run typecheck`. The golden tests make it take a few minutes |
+| `npm run test:fast`          | Every test except the golden tests and the desktop app's end-to-end test (about 40 s), then the type-check. Use it while iterating |
+| `npm run test:desktop`       | After `npm run build:desktop`, only the desktop app's end-to-end test, `tests/desktop/app.test.ts` (about 25 s), which drives the built app in its own window, or the packaged app whose executable `WIO_DESKTOP_APP` names. On Linux, run it under `xvfb-run` |
 | `npm run typecheck`          | Type-check `src/` and `tests/`, then the UI in `ui/` with `tests/ui/`, which has its own browser `tsconfig` |
 | `npm run test:golden`        | Only the golden tests in `tests/golden/`                                                                 |
 | `npm run build:wasm`         | Rebuild `wasm/pkg` in the pinned Docker image (needs a running Docker daemon, no local Rust). Run it after any change under `wasm/`, and commit the result |

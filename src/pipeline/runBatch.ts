@@ -75,7 +75,7 @@ function totalsOf(files: PipelineFileResult[]): PipelineRunResult["totals"] {
 
 /**
  * Runs files in lanes, as {@link optimiseBatch} describes, failing up front the files that
- * `findFailures` names. It is optimiseBatch's body, shared with the UI server, which decides
+ * `findFailures` names. It is optimiseBatch's body, shared with the app API, which decides
  * those failures its own way.
  *
  * @param tasks - The files, each with its options.

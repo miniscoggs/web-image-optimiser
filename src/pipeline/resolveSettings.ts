@@ -54,6 +54,38 @@ function isWebUrl(value: string) {
 }
 
 /**
+ * Checks one rights field to add, as a run does once the value is trimmed.
+ *
+ * @param name - The field.
+ * @param value - Its value.
+ * @returns Why the value can't be used: it is empty, or a URL field's value isn't an `http:` or
+ * `https:` URL; `undefined` when it can.
+ */
+function rightsFieldError(
+  name: keyof PipelineRightsOptions,
+  value: string
+): string | undefined {
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    return `Expected rights.${name} to have a value`;
+  }
+  if (URL_OPTIONS.has(name) && !isWebUrl(trimmed)) {
+    return `Expected rights.${name} to be an http: or https: URL, got ${trimmed}`;
+  }
+  return undefined;
+}
+
+/**
+ * Returns whether a value is a maximum width a run takes: a whole number of pixels, at least 1.
+ *
+ * @param value - The value.
+ */
+function isMaxWidth(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1;
+}
+
+/**
  * Trims the rights fields to add, and checks them.
  *
  * @param rights - The caller's fields.
@@ -68,17 +100,13 @@ function resolveRights(rights: PipelineRightsOptions | undefined) {
       return [];
     }
 
-    const trimmed = typeof value === "string" ? value.trim() : "";
+    const text = typeof value === "string" ? value : "";
+    const error = rightsFieldError(name, text);
 
-    if (trimmed === "") {
-      throw new RangeError(`Expected rights.${name} to have a value`);
+    if (error !== undefined) {
+      throw new RangeError(error);
     }
-    if (URL_OPTIONS.has(name) && !isWebUrl(trimmed)) {
-      throw new RangeError(
-        `Expected rights.${name} to be an http: or https: URL, got ${trimmed}`
-      );
-    }
-    return [[name, trimmed] as const];
+    return [[name, text.trim()] as const];
   });
 
   return entries.length === 0
@@ -108,10 +136,7 @@ function resolveSettings(options: PipelineOptions): PipelineSettings {
       `Expected a target preset or a score from 0 to 100, got ${String(target)}`
     );
   }
-  if (
-    maxWidth !== undefined &&
-    !(Number.isInteger(maxWidth) && maxWidth >= 1)
-  ) {
+  if (maxWidth !== undefined && !isMaxWidth(maxWidth)) {
     throw new RangeError(
       `Expected a maximum width of at least 1 pixel, got ${String(maxWidth)}`
     );
@@ -138,7 +163,9 @@ function resolveSettings(options: PipelineOptions): PipelineSettings {
 export {
   PIPELINE_RIGHTS_OPTIONS,
   PIPELINE_TARGET_PRESETS,
+  isMaxWidth,
   isWebUrl,
   resolveSettings,
+  rightsFieldError,
 };
 export type { PipelineSettings };

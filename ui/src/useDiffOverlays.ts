@@ -28,11 +28,13 @@ const DRAWING: DiffOverlayMap = { status: "drawing" };
  *
  * @param original - The original's ref.
  * @param candidates - The ref of the image each pane shows, by pane.
+ * @param maxWidth - The width the images were made at, when the run capped it.
  * @returns A pane's overlay, a function that shows or hides it, and one that sets its opacity.
  */
 function useDiffOverlays(
   original: string,
-  candidates: ReadonlyMap<string, string>
+  candidates: ReadonlyMap<string, string>,
+  maxWidth?: number
 ) {
   const [settings, setSettings] = useState<
     ReadonlyMap<string, DiffOverlaySetting>
@@ -55,7 +57,7 @@ function useDiffOverlays(
     for (const candidate of JSON.parse(wanted) as string[]) {
       if (!requested.current.has(candidate)) {
         requested.current.add(candidate);
-        diffImage(original, candidate).then(
+        diffImage(original, candidate, maxWidth).then(
           (ref) => {
             draw(candidate, { status: "drawn", ref });
           },
@@ -65,7 +67,7 @@ function useDiffOverlays(
         );
       }
     }
-  }, [original, wanted]);
+  }, [original, wanted, maxWidth]);
 
   const change = (
     pane: string,

@@ -1,6 +1,8 @@
-// Decides which golden tests a CI run needs, and prints them for $GITHUB_OUTPUT. A pull request
-// that changes engine files runs them on Ubuntu, and a release pull request (one that changes the
-// package version) on every OS, as does a manual run. Usage: node scripts/ci-scope.mjs <event>
+// Decides which golden tests a CI run needs, and whether it runs the desktop app's end-to-end
+// test, and prints them for $GITHUB_OUTPUT. A pull request that changes engine files runs the
+// golden tests on Ubuntu, and one that changes the desktop app's files runs the desktop test. A
+// release pull request (one that changes the package version) runs the golden tests on every OS
+// and the desktop test, as does a manual run. Usage: node scripts/ci-scope.mjs <event>
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -9,6 +11,14 @@ const ENGINE_PATHS = [
   "wasm/",
   "fixtures/",
   "tests/golden/",
+  "package.json",
+  "package-lock.json",
+];
+const DESKTOP_PATHS = [
+  "desktop/",
+  "ui/",
+  "src/app/",
+  "tests/desktop/",
   "package.json",
   "package-lock.json",
 ];
@@ -38,24 +48,30 @@ function pullRequestScope() {
     .filter(Boolean);
   const baseVersion = JSON.parse(git("show", `${BASE}:package.json`)).version;
   const version = JSON.parse(readFileSync("package.json", "utf8")).version;
-  const engine = changed.some((file) =>
-    ENGINE_PATHS.some((path) => file === path || file.startsWith(path))
-  );
+  const touches = (paths) =>
+    changed.some((file) =>
+      paths.some((path) => file === path || file.startsWith(path))
+    );
 
   if (version !== baseVersion) {
-    return { goldenOs: EVERY_OS, release: true };
+    return { goldenOs: EVERY_OS, release: true, desktop: true };
   }
-  return { goldenOs: engine ? ["ubuntu-latest"] : [], release: false };
+  return {
+    goldenOs: touches(ENGINE_PATHS) ? ["ubuntu-latest"] : [],
+    release: false,
+    desktop: touches(DESKTOP_PATHS),
+  };
 }
 
 const [event] = process.argv.slice(2);
-let scope = { goldenOs: [], release: false }; // a push to main was tested as a pull request
+let scope = { goldenOs: [], release: false, desktop: false }; // a push to main was tested as a pull request
 
 if (event === "pull_request") {
   scope = pullRequestScope();
 } else if (event === "workflow_dispatch") {
-  scope = { goldenOs: EVERY_OS, release: false };
+  scope = { goldenOs: EVERY_OS, release: false, desktop: true };
 }
 
 console.log(`golden-os=${JSON.stringify(scope.goldenOs)}`);
 console.log(`release=${scope.release}`);
+console.log(`desktop=${scope.desktop}`);

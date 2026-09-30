@@ -6,7 +6,9 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["dist/", "wasm/pkg/", "coverage/"] },
+  {
+    ignores: ["dist/", "desktop/build/", "release/", "wasm/pkg/", "coverage/"],
+  },
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   {
@@ -26,7 +28,7 @@ export default defineConfig(
       parserOptions: { project: "./ui/tsconfig.json" },
     },
     rules: {
-      // the ui's tsconfig has node's types only for the server api's types
+      // the ui's tsconfig has node's types only for the app api's types
       "no-restricted-globals": ["error", "Buffer", "process", "require"],
     },
   },

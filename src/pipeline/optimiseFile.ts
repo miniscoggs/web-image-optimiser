@@ -11,7 +11,7 @@ import { createRasterSource } from "./rasterCandidates.js";
 import readInput from "./readInput.js";
 import { resolveSettings } from "./resolveSettings.js";
 import type { PipelineSettings } from "./resolveSettings.js";
-import selectRaster from "./selectRaster.js";
+import { selectRaster } from "./selectRaster.js";
 import selectSvg from "./selectSvg.js";
 import type {
   PipelineFileResult,

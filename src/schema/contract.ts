@@ -8,7 +8,7 @@ import { STRIP_REMOVED_KINDS } from "../strip/types.js";
 import { ERROR_CODES, WARNING_CODES } from "./codes.js";
 import SCHEMA_VERSION from "./version.js";
 
-// the json contract: zod is only loaded by the build, the tests and the ui server, never at runtime
+// the json contract: zod is only loaded by the build, the tests and the app api, never by the cli
 
 /**
  * Every output role.
@@ -352,6 +352,7 @@ export {
   eventSchema,
   fileResultSchema,
   outputSchema,
+  rightsSchema,
   runResultSchema,
   warningSchema,
 };

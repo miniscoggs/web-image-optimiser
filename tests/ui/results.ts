@@ -3,7 +3,7 @@ import type {
   PipelineOutput,
 } from "../../src/pipeline/types.js";
 
-// finished files as the ui server streams them, with refs in place of paths
+// finished files as the app api streams them, with refs in place of paths
 
 const INPUT_BYTES = 100_000;
 
@@ -32,9 +32,9 @@ function outputOf(
  * Returns a suite run's result for a PNG with alpha: AVIF, WebP and a PNG fallback, in the
  * contract's order.
  */
-function suiteResult(): PipelineFileResult {
+function suiteResult(input = "root/photos/cat.png"): PipelineFileResult {
   return {
-    input: "root/photos/cat.png",
+    input,
     status: "optimised",
     bytes: INPUT_BYTES,
     width: 64,

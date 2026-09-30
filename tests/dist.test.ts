@@ -1,19 +1,20 @@
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readdir, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { PipelineEvent } from "../src/pipeline/index.js";
 import { eventSchema, runResultSchema } from "../src/schema/contract.js";
-import { diffResponseSchema, encodeResponseSchema } from "../src/server/api.js";
+import { diffResponseSchema, searchResponseSchema } from "../src/app/api.js";
 import { fixturePath } from "./fixtureManifest.js";
 
+type App = typeof import("../src/app/index.js");
 type Metrics = typeof import("../src/metrics/index.js");
 type Pipeline = typeof import("../src/pipeline/index.js");
-type Server = typeof import("../src/server/index.js");
 
 const DIST_DIR = new URL("../dist/", import.meta.url);
+const RENDERER_DIR = new URL("../desktop/build/renderer/", import.meta.url);
 const PAIR_DIR = new URL("../fixtures/ssimulacra2/", import.meta.url);
 
 /**
@@ -121,83 +122,55 @@ describe.skipIf(!existsSync(DIST_DIR))("build", () => {
     }
   });
 
-  it("serves the UI's re-encodes and diff maps from its pixel process", async () => {
-    const { startUiServer } = await importBuilt<Server>("server");
-    const { folder } = await copyToTemp(["gradient-16bit.png"]);
-    const server = await startUiServer({ root: folder });
+  it("makes the app's searches and diff maps in its pixel process", async () => {
+    const { createAppApi } = await importBuilt<App>("app");
+    const { folder, inputs } = await copyToTemp(["gradient-16bit.png"]);
+    const app = await createAppApi();
 
     try {
-      const exchange = await fetch(server.url, { redirect: "manual" });
-      const cookie = exchange.headers.get("set-cookie")?.split(";")[0] ?? "";
       const post = (pathname: string, body: unknown) =>
-        fetch(new URL(pathname, server.url), {
-          method: "POST",
-          headers: { cookie, "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      const encoded = encodeResponseSchema.parse(
-        await (
-          await post("/api/encode", {
-            file: "root/gradient-16bit.png",
-            format: "avif",
-            quality: 80, // a gradient bands badly below this
+        app.handle(
+          new Request(new URL(pathname, "wio://app/"), {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
           })
+        );
+      const [opened] = await app.open(inputs);
+      const file = opened !== undefined && "ref" in opened ? opened.ref : "";
+      const found = searchResponseSchema.parse(
+        await (
+          await post("/api/search", { file, format: "avif", target: "web" })
         ).json()
       );
       const diff = await post("/api/diff", {
-        original: "root/gradient-16bit.png",
-        candidate: encoded.ref,
+        original: file,
+        candidate: found.ref,
       });
 
-      expect(encoded.score).toBeGreaterThan(50);
+      expect(found).toMatchObject({ format: "avif", reached: true });
       expect(diffResponseSchema.parse(await diff.json()).ref).toMatch(
         /^session\/diffs\//
       );
     } finally {
-      await server.close();
+      await app.close();
       await rm(folder, { recursive: true, force: true });
     }
   });
+});
 
-  it("serves the built UI, whose scripts are all files the page policy allows", async () => {
-    const { startUiServer } = await importBuilt<Server>("server");
-    const { folder } = await copyToTemp([]);
-    const server = await startUiServer({ root: folder });
+// the renderer exists only after vite builds the ui
+describe.skipIf(!existsSync(RENDERER_DIR))("renderer build", () => {
+  it("bundles no zod, SVGO or sharp", async () => {
+    const assets = new URL("assets/", RENDERER_DIR);
+    const scripts = (await readdir(assets)).filter(
+      (name) => path.extname(name) === ".js"
+    );
+    const bodies = await Promise.all(
+      scripts.map((name) => readFile(new URL(name, assets), "utf8"))
+    );
 
-    try {
-      const exchange = await fetch(server.url, { redirect: "manual" });
-      const cookie = exchange.headers.get("set-cookie")?.split(";")[0] ?? "";
-      const get = (pathname: string) =>
-        fetch(new URL(pathname, server.url), { headers: { cookie } });
-      const page = await get("/");
-      const html = await page.text();
-      const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)];
-
-      expect(page.status).toBe(200);
-      expect(page.headers.get("content-type")).toMatch(/^text\/html/);
-      expect(page.headers.get("content-security-policy")).toMatch(
-        /default-src 'self'/
-      );
-      expect(html.match(/<script\b[^>]*>/g)).toEqual([
-        expect.stringMatching(/ src="\/assets\/[\w-]+\.js"/),
-      ]);
-      expect(assets.map((match) => path.extname(match[1] ?? ""))).toEqual([
-        ".js",
-        ".css",
-      ]);
-      const bodies = await Promise.all(
-        assets.map(async ([, asset]) => {
-          const response = await get(asset ?? "");
-
-          expect(response.status).toBe(200);
-          return response.text();
-        })
-      );
-
-      expect(bodies.join("\n")).not.toMatch(/ZodError|preset-default|libvips/); // strings zod, svgo and sharp each hold, so none of them is bundled
-    } finally {
-      await server.close();
-      await rm(folder, { recursive: true, force: true });
-    }
+    expect(scripts).not.toEqual([]);
+    expect(bodies.join("\n")).not.toMatch(/ZodError|preset-default|libvips/); // strings zod, svgo and sharp each hold
   });
 });

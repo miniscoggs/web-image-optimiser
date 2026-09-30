@@ -1,0 +1,36 @@
+# electron-builder's configuration for the desktop app's unsigned installers, which
+# `npm run package:desktop` builds from the root package. The icons come from scripts/build-icons.mjs
+appId: io.github.miniscoggs.wio
+productName: Web Image Optimiser
+artifactName: wio-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: desktop/resources
+files:
+  - package.json
+  - dist/**
+  - desktop/build/main/**
+  - desktop/build/preload/**
+  - desktop/build/renderer/**
+asarUnpack: # sharp's native binaries, which load only from real files
+  - "**/node_modules/sharp/**"
+  - "**/node_modules/@img/**"
+npmRebuild: false # they use node-api, so electron runs them as they are
+publish: null # no auto-update, so no update files beside the installers
+win:
+  target: nsis
+  icon: desktop/build/icons/icon.ico
+nsis:
+  include: desktop/resources/installer.nsh # open with, without the default fileAssociations writes
+mac:
+  target: dmg
+  icon: desktop/build/icons/icon.png
+  category: public.app-category.graphics-design
+  identity: "-" # ad-hoc, which apple silicon needs to run it at all
+  hardenedRuntime: false # only notarising needs it, and with it an ad-hoc signed app fails library validation
+  fileAssociations: # open with and the dock icon take them, as a viewer that is never the default
+    - { ext: png, name: PNG image, role: Viewer, rank: Alternate }
+    - { ext: [jpg, jpeg], name: JPEG image, role: Viewer, rank: Alternate }
+    - { ext: webp, name: WebP image, role: Viewer, rank: Alternate }
+    - { ext: avif, name: AVIF image, role: Viewer, rank: Alternate }
+    - { ext: svg, name: SVG image, role: Viewer, rank: Alternate }

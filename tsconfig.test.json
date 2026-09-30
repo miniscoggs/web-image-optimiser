@@ -2,8 +2,16 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
-    "noEmit": true
+    "noEmit": true,
+    // the desktop's main process imports the app api from dist at run time, typed by its source
+    "paths": { "#app": ["./src/app/index.ts"] }
   },
-  "include": ["src", "tests", "vitest.config.ts"],
+  "include": [
+    "src",
+    "tests",
+    "vitest.config.ts",
+    "desktop/src",
+    "desktop/*.config.ts"
+  ],
   "exclude": ["tests/ui"]
 }

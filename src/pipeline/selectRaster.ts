@@ -2,12 +2,14 @@ import type { EncodeFormat } from "../encode/index.js";
 import FORMAT_NAMES from "../inspect/formatNames.js";
 import { isOpaque } from "../metrics/composite.js";
 import { isDownscaledForScoring } from "../metrics/index.js";
+import { OptimiserError } from "../schema/index.js";
 import type { ChosenCandidate, RasterCandidate } from "./candidate.js";
 import DOWNSCALED_WARNING from "./downscaledWarning.js";
 import { rasterCandidates, stripCandidate } from "./rasterCandidates.js";
 import type { RasterSource } from "./rasterCandidates.js";
 import { rightsWarnings, withRights } from "./sourceRights.js";
 import type { RightsTier } from "./sourceRights.js";
+import keptBySuiteChain from "./suiteChain.js";
 import type {
   PipelineMode,
   PipelineOutputRole,
@@ -53,6 +55,74 @@ function pickCandidate(
  */
 function withTier(candidates: RasterCandidate[], tier: RightsTier) {
   return candidates.flatMap((candidate) => withRights(candidate, tier));
+}
+
+/**
+ * Picks a candidate as {@link pickCandidate} does, carrying the first tier of rights that leaves
+ * one to pick, so fields are dropped only when none with more would be under the size.
+ *
+ * @param candidates - The candidates, holding no XMP.
+ * @param tiers - The rights to try, most first.
+ * @param below - The size a candidate must be under.
+ * @param target - The target score.
+ * @param allowBelowTarget - Whether a candidate below the target may be picked.
+ */
+function pickCarrying(
+  candidates: RasterCandidate[],
+  tiers: readonly RightsTier[],
+  below: number,
+  target: number,
+  allowBelowTarget: boolean
+) {
+  for (const tier of tiers) {
+    const best = pickCandidate(
+      withTier(candidates, tier), // lazily, so a tier's packet is only written once the ones before it fail
+      below,
+      target,
+      allowBelowTarget
+    );
+
+    if (best !== undefined) {
+      return best;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Returns the size a suite's output must be under: the input's, except that a fallback may be
+ * the unchanged input, unless it was resized, so a page always has one.
+ *
+ * @param source - The source.
+ * @param role - The output's role.
+ * @param inputBytes - The input's size.
+ */
+function suiteBound(
+  source: RasterSource,
+  role: PipelineOutputRole,
+  inputBytes: number
+) {
+  return role === "fallback" && source.strip !== undefined
+    ? inputBytes + 1
+    : inputBytes;
+}
+
+/**
+ * Warns when the source's candidates couldn't be scored as usual: an image too small to score,
+ * or too large to score at its full size.
+ *
+ * @param source - The source.
+ */
+function sourceWarnings(source: RasterSource): PipelineWarning[] {
+  if (!source.scorable) {
+    return [
+      {
+        code: "W_TOO_SMALL_TO_SCORE",
+        message: `Images under 8x8 pixels can't be scored, so only lossless outputs were tried`,
+      },
+    ];
+  }
+  return isDownscaledForScoring(source.image) ? [DOWNSCALED_WARNING] : [];
 }
 
 /**
@@ -164,39 +234,80 @@ async function selectSuite(source: RasterSource, inputBytes: number) {
     ["webp", ["webp"]],
     ["avif", ["avif"]],
   ];
-  const results = await Promise.all(
-    roles.map(([, formats]) =>
-      Promise.all(formats.map((format) => rasterCandidates(format, source)))
-    )
+  const bests = await Promise.all(
+    roles.map(async ([role, formats]) => {
+      const results = await Promise.all(
+        formats.map((format) => rasterCandidates(format, source))
+      );
+      const candidates = results.flatMap((result) => result.candidates);
+
+      return pickCarrying(
+        candidates,
+        source.rights.tiers,
+        suiteBound(source, role, inputBytes), // under the input rather than the chain's bound, so the chain never drops fields
+        source.target,
+        false
+      );
+    })
   );
-  const chosen: ChosenCandidate[] = [];
-  const fallbackBelow =
-    source.strip === undefined ? inputBytes : inputBytes + 1; // unless resized, the unchanged input may be the fallback, so a page always has one
-  let below = fallbackBelow;
+  const kept = keptBySuiteChain(bests.map((best) => best?.bytes.length));
 
-  for (const [index, [role]] of roles.entries()) {
-    const candidates = (results[index] ?? []).flatMap(
-      (result) => result.candidates
-    );
-    const inputBelow = role === "fallback" ? fallbackBelow : inputBytes;
-    const carrying = source.rights.tiers
-      .values() // lazily, so a tier's packet is only written once the ones before it fail
-      .map((tier) => withTier(candidates, tier))
-      .find(
-        (tiered) =>
-          pickCandidate(tiered, inputBelow, source.target, false) !== undefined
-      ); // fewer fields only when none with more fits under the input, whatever the chain's bound
-    const best =
-      carrying && pickCandidate(carrying, below, source.target, false);
+  return roles
+    .flatMap(([role], index): ChosenCandidate[] => {
+      const best = bests[index];
 
-    if (best === undefined) {
-      below = Math.min(below, inputBytes);
-    } else {
-      chosen.unshift({ ...best, role });
-      below = best.bytes.length;
-    }
+      return best !== undefined && kept[index] === true
+        ? [{ ...best, role }]
+        : [];
+    })
+    .toReversed();
+}
+
+/**
+ * Chooses one format's output as `suite` chooses each of its own, apart from the chain rule, for
+ * the app's target sliders. When nothing in the format reaches the target under the input's
+ * size, it takes the best carrying the most fields the format can hold instead, which may fall
+ * short of the target or be larger than the input.
+ *
+ * @param source - The source.
+ * @param format - The format.
+ * @param inputBytes - The input's size.
+ * @returns The output, and the warnings.
+ * @throws {@link OptimiserError} `E_TOO_LARGE_FOR_FORMAT` when the format can't hold the image,
+ * or `E_TOO_SMALL_TO_SCORE` when the image is too small to score and the format is lossy.
+ */
+async function selectFormat(
+  source: RasterSource,
+  format: EncodeFormat,
+  inputBytes: number
+) {
+  const { candidates, unavailable } = await rasterCandidates(format, source);
+  const { tiers } = source.rights;
+  const role = format === "webp" || format === "avif" ? format : "fallback";
+  const chosen =
+    pickCarrying(
+      candidates,
+      tiers,
+      suiteBound(source, role, inputBytes),
+      source.target,
+      false
+    ) ?? pickCarrying(candidates, tiers, Infinity, source.target, true);
+
+  if (chosen === undefined) {
+    throw unavailable === undefined
+      ? new OptimiserError(
+          "E_TOO_SMALL_TO_SCORE",
+          `Images under 8x8 pixels can't be scored, so no ${FORMAT_NAMES[format]} was tried`
+        )
+      : new OptimiserError("E_TOO_LARGE_FOR_FORMAT", unavailable);
   }
-  return chosen;
+
+  const warnings = [
+    ...sourceWarnings(source),
+    ...rightsWarnings(source.rights, [chosen]),
+  ];
+
+  return { chosen, warnings };
 }
 
 /**
@@ -212,17 +323,7 @@ async function selectRaster(
   mode: PipelineMode,
   inputBytes: number
 ) {
-  const warnings: PipelineWarning[] = [];
-
-  if (!source.scorable) {
-    warnings.push({
-      code: "W_TOO_SMALL_TO_SCORE",
-      message: `Images under 8x8 pixels can't be scored, so only lossless outputs were tried`,
-    });
-  } else if (isDownscaledForScoring(source.image)) {
-    warnings.push(DOWNSCALED_WARNING);
-  }
-
+  const warnings = sourceWarnings(source);
   const selected =
     mode === "suite"
       ? { chosen: await selectSuite(source, inputBytes), warnings: [] }
@@ -246,4 +347,4 @@ async function selectRaster(
   return { chosen, warnings };
 }
 
-export default selectRaster;
+export { selectFormat, selectRaster };

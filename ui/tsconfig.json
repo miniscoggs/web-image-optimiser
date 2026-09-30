@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    // node: the server api's types come from engine source that names Buffer
+    // node: the app api's types come from engine source that names Buffer
     "types": ["vite/client", "node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,

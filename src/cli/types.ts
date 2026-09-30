@@ -25,8 +25,6 @@ type CliIo = {
   progress: boolean;
   /** Stops the run, eg on Ctrl+C. */
   signal?: AbortSignal;
-  /** Opens an address in the browser, for `wio ui`: the file URL of its forwarding page. */
-  openUrl?: (url: string) => void;
 };
 
 export type { CliIo, CliStream };
