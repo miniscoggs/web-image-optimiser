@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createAppApi } from "../../src/app/index.js";
@@ -19,7 +19,9 @@ type AppSession = Awaited<ReturnType<typeof startAppSession>>;
  * @param files - The fixtures to copy and open, each optionally into a subfolder, eg `sub/a.png`.
  */
 async function startAppSession(files: string[]) {
-  const outside = await mkdtemp(path.join(tmpdir(), "wio app é ü-"));
+  const outside = await realpath(
+    await mkdtemp(path.join(tmpdir(), "wio app é ü-"))
+  ); // as the app gives its paths, eg /private/var for macos's /var, or a windows short name in full
   const folder = path.join(outside, "images");
   const secret = path.join(outside, "secret.png");
 
