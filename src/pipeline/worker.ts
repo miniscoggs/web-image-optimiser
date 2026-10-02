@@ -1,11 +1,5 @@
 // a batch lane's child process, forked only by createProcessExecutor; it runs one file at a time
-import { createScorePool } from "../metrics/index.js";
-import { runFile } from "./executors.js";
 import type { WorkerReply, WorkerRequest } from "./executors.js";
-
-const scorers = Number(process.argv[2]); // how many scores the lane runs at once
-const scorePool = scorers > 1 ? createScorePool(scorers) : undefined; // else this thread scores
-let controller: AbortController | undefined;
 
 const ignore = () => undefined;
 
@@ -14,6 +8,13 @@ process.on("SIGTERM", ignore);
 process.on("disconnect", () => {
   process.exit(); // the parent is gone, so no orphan is left behind
 });
+
+const { createScorePool } = await import("../metrics/index.js"); // after the handlers, as loading the engine can take seconds on a busy machine; node holds messages until there's a listener
+const { runFile } = await import("./executors.js");
+const scorers = Number(process.argv[2]); // how many scores the lane runs at once
+const scorePool = scorers > 1 ? createScorePool(scorers) : undefined; // else this thread scores
+let controller: AbortController | undefined;
+
 process.on("message", (request: WorkerRequest) => {
   if (request.type === "abort") {
     controller?.abort();

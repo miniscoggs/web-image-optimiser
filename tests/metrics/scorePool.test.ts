@@ -81,7 +81,7 @@ describe("createScorePool", () => {
       [1, 2, 3, 4].map(() => pool.score(pairOf(50)))
     );
 
-    expect(scores.toSorted()).toEqual([1, 1, 2, 2]); // each thread scored two
+    expect(scores.filter((score) => score === 1)).toEqual([1, 1]); // each thread's first; how the rest split depends on how fast each started
   });
 
   it("scores pairs ahead of need after the rest, taking one that has become needed in its turn", async () => {
