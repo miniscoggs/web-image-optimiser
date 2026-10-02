@@ -21,8 +21,10 @@ import type {
  * @param options - What to write, and where, as for {@link optimiseFile}.
  * @param context - `signal` aborts the run: it rejects with the signal's reason once every file
  * in progress has stopped and cleaned up its temp files. `onEvent` receives each event.
- * `concurrency` is how many files run at once; it defaults to one fewer than the CPUs, capped at
- * one per 4 GiB of memory, because scoring a very large image takes that much.
+ * `concurrency` is how many scores run at once: as many files, each scoring one candidate at a
+ * time, or, given fewer files, an even share of it for each to score its candidates on, side by
+ * side. It defaults to one fewer than the CPUs, capped at one per 4 GiB of memory, because
+ * scoring a very large image takes that much.
  * @returns Every file's result in input order, with totals and the versions used.
  * @throws RangeError when an option or the concurrency is invalid.
  */

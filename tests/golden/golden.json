@@ -1,6 +1,6 @@
 {
   "tool": { "version": "0.1.0", "sharp": "0.35.4", "libvips": "8.18.6" },
-  "target": 80,
+  "target": 70,
   "modes": {
     "same": {
       "gradient.png": {
@@ -35,8 +35,8 @@
             "role": "same",
             "format": "png",
             "method": "lossy",
-            "quality": 63,
-            "bytes": 11572
+            "quality": 54,
+            "bytes": 11085
           }
         ]
       },
@@ -80,8 +80,8 @@
             "role": "same",
             "format": "png",
             "method": "lossy",
-            "quality": 69,
-            "bytes": 30241
+            "quality": 45,
+            "bytes": 24491
           }
         ]
       },
@@ -93,15 +93,23 @@
             "role": "same",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 80,
-            "bytes": 19652
+            "quality": 76,
+            "bytes": 15492
           }
         ]
       },
       "display-p3.jpg": {
-        "status": "kept-original",
-        "warnings": ["W_NO_RIGHTS", "W_ICC_KEPT"],
-        "outputs": []
+        "status": "optimised",
+        "warnings": ["W_NO_RIGHTS"],
+        "outputs": [
+          {
+            "role": "same",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 74,
+            "bytes": 4050
+          }
+        ]
       },
       "lossy.webp": {
         "status": "optimised",
@@ -111,8 +119,8 @@
             "role": "same",
             "format": "webp",
             "method": "lossy",
-            "quality": 79,
-            "bytes": 22426
+            "quality": 74,
+            "bytes": 21088
           }
         ]
       },
@@ -137,8 +145,8 @@
             "role": "same",
             "format": "avif",
             "method": "lossy",
-            "quality": 55,
-            "bytes": 15324
+            "quality": 50,
+            "bytes": 12771
           }
         ]
       },
@@ -150,8 +158,8 @@
             "role": "same",
             "format": "avif",
             "method": "lossy",
-            "quality": 59,
-            "bytes": 15978
+            "quality": 52,
+            "bytes": 14054
           }
         ]
       },
@@ -184,8 +192,8 @@
             "role": "same",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 83,
-            "bytes": 116818
+            "quality": 69,
+            "bytes": 72062
           }
         ]
       },
@@ -197,8 +205,8 @@
             "role": "same",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 84,
-            "bytes": 246372
+            "quality": 68,
+            "bytes": 158259
           }
         ]
       },
@@ -210,8 +218,8 @@
             "role": "same",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 80,
-            "bytes": 114490
+            "quality": 60,
+            "bytes": 72741
           }
         ]
       },
@@ -223,8 +231,8 @@
             "role": "same",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 83,
-            "bytes": 201051
+            "quality": 70,
+            "bytes": 139060
           }
         ]
       },
@@ -236,8 +244,8 @@
             "role": "same",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 77,
-            "bytes": 7447
+            "quality": 71,
+            "bytes": 5988
           }
         ]
       }
@@ -275,8 +283,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 52,
-            "bytes": 11398
+            "quality": 30,
+            "bytes": 9344
           }
         ]
       },
@@ -326,8 +334,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 88,
-            "bytes": 19482
+            "quality": 80,
+            "bytes": 11470
           }
         ]
       },
@@ -339,8 +347,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 87,
-            "bytes": 21228
+            "quality": 80,
+            "bytes": 13054
           }
         ]
       },
@@ -352,8 +360,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 38,
-            "bytes": 1234
+            "quality": 30,
+            "bytes": 1138
           }
         ]
       },
@@ -365,8 +373,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 79,
-            "bytes": 22426
+            "quality": 74,
+            "bytes": 21088
           }
         ]
       },
@@ -385,25 +393,27 @@
       },
       "exif.avif": {
         "status": "optimised",
-        "warnings": ["W_NOT_CONVERTED", "W_NO_RIGHTS"],
+        "warnings": ["W_NO_RIGHTS"],
         "outputs": [
           {
-            "role": "same",
-            "format": "avif",
-            "method": "strip",
-            "bytes": 16387
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 81,
+            "bytes": 15702
           }
         ]
       },
       "rotated-xmp.avif": {
         "status": "optimised",
-        "warnings": ["W_NOT_CONVERTED"],
+        "warnings": [],
         "outputs": [
           {
-            "role": "same",
-            "format": "avif",
-            "method": "strip",
-            "bytes": 16930
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 80,
+            "bytes": 14882
           }
         ]
       },
@@ -436,8 +446,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 89,
-            "bytes": 127094
+            "quality": 76,
+            "bytes": 67460
           }
         ]
       },
@@ -449,8 +459,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 85,
-            "bytes": 234712
+            "quality": 71,
+            "bytes": 153410
           }
         ]
       },
@@ -462,8 +472,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 81,
-            "bytes": 106048
+            "quality": 63,
+            "bytes": 68856
           }
         ]
       },
@@ -475,8 +485,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 85,
-            "bytes": 197586
+            "quality": 73,
+            "bytes": 129002
           }
         ]
       },
@@ -488,8 +498,8 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 86,
-            "bytes": 7460
+            "quality": 66,
+            "bytes": 4692
           }
         ]
       }
@@ -503,8 +513,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 22,
-            "bytes": 659
+            "quality": 20,
+            "bytes": 647
           }
         ]
       },
@@ -516,8 +526,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 87,
-            "bytes": 14973
+            "quality": 72,
+            "bytes": 8555
           }
         ]
       },
@@ -529,8 +539,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 44,
-            "bytes": 7817
+            "quality": 22,
+            "bytes": 5303
           }
         ]
       },
@@ -542,8 +552,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 24,
-            "bytes": 1605
+            "quality": 20,
+            "bytes": 1532
           }
         ]
       },
@@ -575,8 +585,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 71,
-            "bytes": 15671
+            "quality": 60,
+            "bytes": 8995
           }
         ]
       },
@@ -588,8 +598,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 64,
-            "bytes": 16148
+            "quality": 52,
+            "bytes": 11127
           }
         ]
       },
@@ -608,13 +618,14 @@
       },
       "lossy.webp": {
         "status": "optimised",
-        "warnings": ["W_NOT_CONVERTED"],
+        "warnings": [],
         "outputs": [
           {
-            "role": "same",
-            "format": "webp",
-            "method": "strip",
-            "bytes": 23192
+            "role": "avif",
+            "format": "avif",
+            "method": "lossy",
+            "quality": 55,
+            "bytes": 17479
           }
         ]
       },
@@ -645,8 +656,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 55,
-            "bytes": 15324
+            "quality": 50,
+            "bytes": 12771
           }
         ]
       },
@@ -658,8 +669,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 59,
-            "bytes": 15978
+            "quality": 52,
+            "bytes": 14054
           }
         ]
       },
@@ -692,8 +703,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 66,
-            "bytes": 75893
+            "quality": 54,
+            "bytes": 45573
           }
         ]
       },
@@ -705,8 +716,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 64,
-            "bytes": 157601
+            "quality": 52,
+            "bytes": 99820
           }
         ]
       },
@@ -718,8 +729,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 59,
-            "bytes": 86700
+            "quality": 49,
+            "bytes": 55993
           }
         ]
       },
@@ -731,8 +742,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 64,
-            "bytes": 140489
+            "quality": 55,
+            "bytes": 95634
           }
         ]
       },
@@ -744,8 +755,8 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 62,
-            "bytes": 5813
+            "quality": 47,
+            "bytes": 4026
           }
         ]
       }
@@ -795,22 +806,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 44,
-            "bytes": 7817
+            "quality": 22,
+            "bytes": 5303
           },
           {
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 52,
-            "bytes": 11398
+            "quality": 30,
+            "bytes": 9344
           },
           {
             "role": "fallback",
             "format": "png",
             "method": "lossy",
-            "quality": 63,
-            "bytes": 11572
+            "quality": 54,
+            "bytes": 11085
           }
         ]
       },
@@ -879,22 +890,15 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 71,
-            "bytes": 15671
-          },
-          {
-            "role": "webp",
-            "format": "webp",
-            "method": "lossy",
-            "quality": 88,
-            "bytes": 19482
+            "quality": 60,
+            "bytes": 8995
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 94,
-            "bytes": 23885
+            "quality": 84,
+            "bytes": 11059
           }
         ]
       },
@@ -906,15 +910,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 64,
-            "bytes": 16148
+            "quality": 52,
+            "bytes": 11127
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 80,
+            "bytes": 13054
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 80,
-            "bytes": 19652
+            "quality": 76,
+            "bytes": 15492
           }
         ]
       },
@@ -933,15 +944,15 @@
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 38,
-            "bytes": 1234
+            "quality": 30,
+            "bytes": 1138
           },
           {
             "role": "fallback",
             "format": "png",
             "method": "lossy",
-            "quality": 50,
-            "bytes": 3184
+            "quality": 16,
+            "bytes": 3048
           }
         ]
       },
@@ -950,11 +961,18 @@
         "warnings": [],
         "outputs": [
           {
-            "role": "webp",
-            "format": "webp",
+            "role": "avif",
+            "format": "avif",
             "method": "lossy",
-            "quality": 79,
-            "bytes": 22426
+            "quality": 55,
+            "bytes": 17479
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 85,
+            "bytes": 21049
           }
         ]
       },
@@ -992,8 +1010,15 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 55,
-            "bytes": 15324
+            "quality": 50,
+            "bytes": 12771
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 77,
+            "bytes": 13925
           }
         ]
       },
@@ -1005,8 +1030,15 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 59,
-            "bytes": 15978
+            "quality": 52,
+            "bytes": 14054
+          },
+          {
+            "role": "fallback",
+            "format": "jpeg",
+            "method": "lossy",
+            "quality": 77,
+            "bytes": 14696
           }
         ]
       },
@@ -1039,15 +1071,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 66,
-            "bytes": 75893
+            "quality": 54,
+            "bytes": 45573
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 76,
+            "bytes": 67460
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 83,
-            "bytes": 116818
+            "quality": 69,
+            "bytes": 72062
           }
         ]
       },
@@ -1059,22 +1098,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 64,
-            "bytes": 157601
+            "quality": 52,
+            "bytes": 99820
           },
           {
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 85,
-            "bytes": 234712
+            "quality": 71,
+            "bytes": 153410
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 84,
-            "bytes": 246372
+            "quality": 68,
+            "bytes": 158259
           }
         ]
       },
@@ -1086,22 +1125,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 59,
-            "bytes": 86700
+            "quality": 49,
+            "bytes": 55993
           },
           {
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 81,
-            "bytes": 106048
+            "quality": 63,
+            "bytes": 68856
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 80,
-            "bytes": 114490
+            "quality": 60,
+            "bytes": 72741
           }
         ]
       },
@@ -1113,22 +1152,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 64,
-            "bytes": 140489
+            "quality": 55,
+            "bytes": 95634
           },
           {
             "role": "webp",
             "format": "webp",
             "method": "lossy",
-            "quality": 85,
-            "bytes": 197586
+            "quality": 73,
+            "bytes": 129002
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 83,
-            "bytes": 201051
+            "quality": 70,
+            "bytes": 139060
           }
         ]
       },
@@ -1140,15 +1179,22 @@
             "role": "avif",
             "format": "avif",
             "method": "lossy",
-            "quality": 62,
-            "bytes": 5813
+            "quality": 47,
+            "bytes": 4026
+          },
+          {
+            "role": "webp",
+            "format": "webp",
+            "method": "lossy",
+            "quality": 66,
+            "bytes": 4692
           },
           {
             "role": "fallback",
             "format": "jpeg",
             "method": "lossy",
-            "quality": 77,
-            "bytes": 7447
+            "quality": 71,
+            "bytes": 5988
           }
         ]
       }

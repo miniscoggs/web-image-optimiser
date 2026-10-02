@@ -1,7 +1,10 @@
 // a batch lane's child process, forked only by createProcessExecutor; it runs one file at a time
+import { createScorePool } from "../metrics/index.js";
 import { runFile } from "./executors.js";
 import type { WorkerReply, WorkerRequest } from "./executors.js";
 
+const scorers = Number(process.argv[2]); // how many scores the lane runs at once
+const scorePool = scorers > 1 ? createScorePool(scorers) : undefined; // else this thread scores
 let controller: AbortController | undefined;
 
 const ignore = () => undefined;
@@ -23,7 +26,7 @@ process.on("message", (request: WorkerRequest) => {
   };
 
   controller = current;
-  runFile(request.task, current.signal).then(
+  runFile(request.task, current.signal, scorePool).then(
     (result) => {
       reply({ type: "done", result });
     },

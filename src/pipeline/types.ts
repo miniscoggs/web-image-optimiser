@@ -62,7 +62,7 @@ type PipelineRightsOptions = {
 type PipelineOptions = {
   /** What to write. Defaults to `webp`. */
   to?: PipelineMode;
-  /** The lowest SSIMULACRA 2 score an output may have, as a preset or a number from 0 to 100. Defaults to `high` (80). SVGs always use 90. */
+  /** The lowest SSIMULACRA 2 score an output may have, as a preset or a number from 0 to 100. Defaults to `web` (70). SVGs always use 90. */
   target?: PipelineTargetPreset | number;
   /** The folder to write into. Defaults to the input's own folder. */
   outDir?: string;

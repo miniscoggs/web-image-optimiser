@@ -49,13 +49,24 @@ function settleMessage(child: Child, outcome: ProcessOutcome<unknown>) {
  * `process.send`.
  *
  * @param moduleUrl - The child module.
+ * @param args - The child's arguments, which a replacement gets too.
+ * @param libuvThreads - How many threads the child's libuv pool has, which runs its sharp
+ * encodes and decodes and its file system calls, if not libuv's default of 4.
  */
-function createProcessSlot(moduleUrl: URL): ProcessSlot {
+function createProcessSlot(
+  moduleUrl: URL,
+  args: string[] = [],
+  libuvThreads?: number
+): ProcessSlot {
   let current: Child | undefined;
 
   const start = () => {
     const child: Child = {
-      process: fork(fileURLToPath(moduleUrl), [], {
+      process: fork(fileURLToPath(moduleUrl), args, {
+        env:
+          libuvThreads === undefined
+            ? undefined
+            : { ...process.env, UV_THREADPOOL_SIZE: String(libuvThreads) }, // libuv reads it only as a process starts
         execArgv: [], // not the parent's, such as --inspect
         serialization: "advanced",
         stdio: ["ignore", "ignore", "inherit", "ipc"], // stdout carries the json contract

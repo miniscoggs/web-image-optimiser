@@ -4,7 +4,13 @@ import type { ProcessSlot } from "../../src/pipeline/processSlot.js";
 
 const CHILD = new URL("./processSlot.child.mjs", import.meta.url);
 
-type ChildReply = { type: "pid" | "aborted"; pid: number };
+type ChildReply = {
+  type: "pid" | "aborted";
+  pid: number;
+  args?: string[];
+  libuvThreads?: string;
+  path?: string;
+};
 
 let slot: ProcessSlot | undefined;
 
@@ -52,6 +58,23 @@ describe("createProcessSlot", () => {
     expect(crashed).toEqual({ type: "crashed", detail: "exit code 3" });
     expect(second).not.toBe(first);
     expect(isRunning(first)).toBe(false);
+  });
+
+  it("gives its child the arguments and libuv's thread count, and a replacement them too", async () => {
+    slot = createProcessSlot(CHILD, ["3"], 12);
+
+    const first = await slot.send<ChildReply>({ type: "pid" });
+
+    await slot.send({ type: "exit" });
+
+    const second = await slot.send<ChildReply>({ type: "pid" });
+    const expected = {
+      type: "reply",
+      reply: { args: ["3"], libuvThreads: "12", path: process.env.PATH },
+    };
+
+    expect(first).toMatchObject(expected);
+    expect(second).toMatchObject(expected);
   });
 
   it("sends the abort message when the signal aborts", async () => {

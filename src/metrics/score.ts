@@ -1,8 +1,9 @@
 import sharp from "sharp";
 import assertComparable from "./assertComparable.js";
 import { BLACK, WHITE, flatten, isOpaque } from "./composite.js";
+import type { ScorePair } from "./scorePool.js";
 import scoreSsimulacra2 from "./ssimulacra2.js";
-import type { MetricsImage } from "./types.js";
+import type { MetricsImage, MetricsScoreOptions } from "./types.js";
 
 const MIN_SCORABLE_SIZE = 8; // ssimulacra 2's minimum width and height
 const MAX_SCORED_PIXELS = 26_000_000; // the wasm's 4 GiB fits 27 MP, and traps at 28
@@ -56,14 +57,41 @@ async function fitForScoring(rgb: Buffer, size: ImageSize) {
 }
 
 /**
+ * Scores a pair with the WASM scorer, on a thread of the pool when there is one, or else on
+ * the calling thread.
+ *
+ * @param pair - The pair.
+ * @param transfer - Memory of the pair's that the pool's thread may take.
+ * @param options - The pool, the signal that drops a pair still waiting for it, and whether
+ * the pair is scored ahead of need.
+ */
+function scorePair(
+  pair: ScorePair,
+  transfer: ArrayBuffer[],
+  options: MetricsScoreOptions
+) {
+  const { pool, signal, speculative } = options;
+
+  return pool === undefined
+    ? scoreSsimulacra2(pair.reference, pair.distorted, pair.width, pair.height)
+    : pool.score(pair, { signal, transfer, speculative });
+}
+
+/**
  * Scores two flattened RGB images with SSIMULACRA 2, resizing them first when they're too
  * large for the WASM scorer.
  *
- * @param reference - The original's RGB pixels.
- * @param distorted - The distorted image's RGB pixels.
+ * @param reference - The original's RGB pixels, which a pool's thread may take.
+ * @param distorted - The distorted image's RGB pixels, which a pool's thread may take.
  * @param size - The dimensions both images share.
+ * @param options - Where to score.
  */
-async function scoreRgb(reference: Buffer, distorted: Buffer, size: ImageSize) {
+async function scoreRgb(
+  reference: Buffer<ArrayBuffer>,
+  distorted: Buffer<ArrayBuffer>,
+  size: ImageSize,
+  options: MetricsScoreOptions
+) {
   if (reference.equals(distorted)) {
     return 100; // also lets tiny lossless candidates score
   }
@@ -72,21 +100,31 @@ async function scoreRgb(reference: Buffer, distorted: Buffer, size: ImageSize) {
       `Images smaller than ${MIN_SCORABLE_SIZE}x${MIN_SCORABLE_SIZE} can only be scored when identical; got ${size.width}x${size.height}`
     );
   }
+
+  const { width, height } = size;
+
   if (!isDownscaledForScoring(size)) {
-    return scoreSsimulacra2(reference, distorted, size.width, size.height);
+    const transfer = [reference.buffer, distorted.buffer]; // flatten gives each its own memory
+
+    return scorePair(
+      { reference, distorted, width, height },
+      transfer,
+      options
+    );
   }
 
   const [fittedReference, fittedDistorted] = await Promise.all([
     fitForScoring(reference, size),
     fitForScoring(distorted, size),
   ]);
+  const fitted = {
+    reference: fittedReference.data,
+    distorted: fittedDistorted.data,
+    width: fittedReference.width,
+    height: fittedReference.height,
+  };
 
-  return scoreSsimulacra2(
-    fittedReference.data,
-    fittedDistorted.data,
-    fittedReference.width,
-    fittedReference.height
-  );
+  return scorePair(fitted, [], options); // sharp's memory can't be transferred, so it's copied
 }
 
 /**
@@ -96,17 +134,24 @@ async function scoreRgb(reference: Buffer, distorted: Buffer, size: ImageSize) {
  * Images with transparency are composited onto black and onto white and scored twice, and the
  * lower score wins, so a difference that shows on either background counts. Identical pixels
  * score 100 straight away. Pairs over 26 megapixels are resized to fit the scorer first (see
- * {@link isDownscaledForScoring}). Scoring takes about a second per megapixel, and the WASM
- * step blocks the calling thread while it runs.
+ * {@link isDownscaledForScoring}). Scoring takes about a second per megapixel. Without a pool,
+ * the WASM step blocks the calling thread while it runs; with one, each background's pair is
+ * scored on the pool's threads, with the same result.
  *
  * @param reference - The original image, from {@link decodeForScoring}.
  * @param distorted - The image to compare against it, with the same dimensions.
+ * @param options - The pool to score on, if any, the signal that drops pairs still waiting
+ * for it, and whether they are scored ahead of need, so they wait behind needed ones.
  * @returns The SSIMULACRA 2 score: 100 for identical pixels, and lower for more visible
  * distortion. Heavily distorted images can score below 0.
  * @throws RangeError when a buffer's length doesn't match its dimensions, when the dimensions
  * differ, or when differing images are smaller than 8x8 (see {@link isScorable}).
  */
-async function score(reference: MetricsImage, distorted: MetricsImage) {
+async function score(
+  reference: MetricsImage,
+  distorted: MetricsImage,
+  options: MetricsScoreOptions = {}
+) {
   assertComparable(reference, distorted);
   if (reference.data.equals(distorted.data)) {
     return 100;
@@ -114,16 +159,24 @@ async function score(reference: MetricsImage, distorted: MetricsImage) {
 
   const backgrounds =
     isOpaque(reference) && isOpaque(distorted) ? [BLACK] : [BLACK, WHITE]; // opaque pairs look the same on any background
+  const scoreOn = (background: number) =>
+    scoreRgb(
+      flatten(reference, background),
+      flatten(distorted, background),
+      reference,
+      options
+    );
+
+  if (options.pool !== undefined) {
+    const scores = await Promise.all(backgrounds.map(scoreOn));
+
+    return Math.min(100, ...scores);
+  }
+
   let lowest = 100;
 
   for (const background of backgrounds) {
-    const backgroundScore = await scoreRgb(
-      flatten(reference, background),
-      flatten(distorted, background),
-      reference
-    );
-
-    lowest = Math.min(lowest, backgroundScore);
+    lowest = Math.min(lowest, await scoreOn(background)); // one pair's pixels at a time, as this thread scores one at a time
   }
   return lowest;
 }

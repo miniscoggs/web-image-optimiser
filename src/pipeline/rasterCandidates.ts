@@ -13,8 +13,13 @@ import type { EncodeFormat, EncodeResult } from "../encode/index.js";
 import type { InspectResult } from "../inspect/index.js";
 import readOrFail from "../inspect/readOrFail.js";
 import { isLosslessWebp } from "../inspect/riffChunks.js";
+import { isOpaque } from "../metrics/composite.js";
 import { decodeForScoring, isScorable, score } from "../metrics/index.js";
-import type { MetricsImage } from "../metrics/index.js";
+import type {
+  MetricsImage,
+  MetricsScoreOptions,
+  MetricsScorePool,
+} from "../metrics/index.js";
 import { OptimiserError } from "../schema/index.js";
 import { searchQuality } from "../search/index.js";
 import { stripLossless } from "../strip/index.js";
@@ -32,6 +37,42 @@ const NEAR_LOSSLESS_STEP = 20; // libwebp only tells levels 20 apart, and 100 is
 const NEAR_LOSSLESS_STEPS = [1, 4] as const; // levels 20 to 80
 
 /**
+ * An encoder's result and its score against the source.
+ */
+type RasterScoredEncode = EncodeResult & { score: number };
+
+/**
+ * What searches of one input file at one maximum width can share, so a search at another
+ * target takes what earlier ones made instead of making it again: the decoded pixels, and each
+ * candidate encoded and scored, by encoder and quality. The app keeps one per file between
+ * its target searches. Encodes are deterministic with sharp's threads pinned, so a kept
+ * candidate is the one a new encode would give, and neither the target nor the rights enter
+ * it, since candidates carry no rights until selection writes them in.
+ */
+type RasterCache = {
+  fitted: { image: MetricsImage; resized: boolean } | undefined;
+  attempts: Map<string, Promise<RasterScoredEncode>>;
+};
+
+/**
+ * How one candidate's encode and score run: the signal that stops them, and whether a search
+ * is making it ahead of need, so its score waits behind needed ones.
+ */
+type RasterAttempt = Pick<MetricsScoreOptions, "signal" | "speculative">;
+
+/**
+ * What a raster input's candidates are made with, besides its settings.
+ */
+type RasterContext = {
+  /** Aborts the encodes, and drops the scores still waiting for a thread. */
+  signal?: AbortSignal;
+  /** Scores the candidates on its threads; without one, they're scored on the calling thread. */
+  scorePool?: MetricsScorePool;
+  /** What earlier searches of the same file at the same maximum width made, to take from and add to; only the app keeps one. */
+  cache?: RasterCache;
+};
+
+/**
  * A raster input, decoded once, with everything its candidates share.
  */
 type RasterSource = {
@@ -47,8 +88,16 @@ type RasterSource = {
   losslessWebp: boolean;
   scorable: boolean;
   target: number;
-  signal: AbortSignal | undefined;
-};
+  /** How many quality searches are running, which share the pool's scorers. */
+  searches: { running: number };
+} & RasterContext;
+
+/**
+ * Creates an empty {@link RasterCache}, for the searches of one input file at one maximum width.
+ */
+function createRasterCache(): RasterCache {
+  return { fitted: undefined, attempts: new Map() };
+}
 
 /**
  * Shrinks decoded pixels wider than a maximum width to exactly that width, keeping the aspect
@@ -81,13 +130,27 @@ async function fitToWidth(
 }
 
 /**
+ * Decodes an input, shrinking it when it is wider than the maximum width.
+ *
+ * @param bytes - The input file.
+ * @param maxWidth - The maximum width, if any.
+ * @throws {@link OptimiserError} `E_DECODE` when the image data can't be decoded.
+ */
+async function decodeFitted(bytes: Buffer, maxWidth: number | undefined) {
+  const decoded = await readOrFail(() => decodeForScoring(bytes));
+  const image = await fitToWidth(decoded, maxWidth);
+
+  return { image, resized: image !== decoded };
+}
+
+/**
  * Decodes and strips a raster input once, for every candidate to share, shrinking it first when
  * it is wider than the maximum width, and works out the rights its outputs may carry.
  *
  * @param bytes - The input file.
  * @param info - What `inspect` reported about it.
  * @param settings - The target score, the maximum width and the rights options.
- * @param signal - Aborts the encodes.
+ * @param context - The signal, the pool to score on and the cache, each if any.
  * @throws {@link OptimiserError} `E_DECODE` when the image data can't be decoded.
  */
 async function createRasterSource(
@@ -97,12 +160,17 @@ async function createRasterSource(
     PipelineSettings,
     "target" | "maxWidth" | "stripAll" | "rights"
   >,
-  signal: AbortSignal | undefined
+  context: RasterContext = {}
 ): Promise<RasterSource> {
   const { target, maxWidth } = settings;
-  const decoded = await readOrFail(() => decodeForScoring(bytes));
-  const image = await fitToWidth(decoded, maxWidth);
-  const resized = image !== decoded;
+  const { cache } = context;
+  const fitted = cache?.fitted ?? (await decodeFitted(bytes, maxWidth));
+  const { image, resized } = fitted;
+
+  if (cache !== undefined) {
+    cache.fitted = fitted;
+  }
+
   const strip = stripLossless(bytes, info);
   const profile: StripRemovedKind[] = info.icc === null ? [] : ["icc"];
   const reencodeStripped = new Set([
@@ -126,7 +194,8 @@ async function createRasterSource(
     losslessWebp: info.format === "webp" && isLosslessWebp(bytes),
     scorable: isScorable(image),
     target,
-    signal,
+    searches: { running: 0 },
+    ...context,
   };
 }
 
@@ -135,11 +204,16 @@ async function createRasterSource(
  *
  * @param bytes - The encoded candidate.
  * @param source - The source.
+ * @param attempt - The signal that drops the score while it waits, and whether it's ahead of need.
  */
-async function scoreBytes(bytes: Buffer, source: RasterSource) {
+async function scoreBytes(
+  bytes: Buffer,
+  source: RasterSource,
+  attempt: RasterAttempt
+) {
   const decoded = await decodeForScoring(bytes);
 
-  return score(source.image, decoded);
+  return score(source.image, decoded, { ...attempt, pool: source.scorePool });
 }
 
 /**
@@ -165,45 +239,126 @@ function toCandidate(
 }
 
 /**
- * Searches an encoder's quality range for the smallest encoding that reaches the target.
+ * Encodes a candidate and scores it against the source, or takes it from the source's cache
+ * when an earlier search of the same file made it. A failure isn't kept, and one taken from the
+ * cache, such as an attempt an earlier search made ahead of need and then dropped, is made again.
  *
+ * @param key - The encoder's name and quality, which with the cache's file and maximum width
+ * decide the candidate.
+ * @param encode - Encodes the source.
+ * @param source - The source.
+ * @param attempt - The signal that stops it, and whether it's ahead of need.
+ */
+function scoredEncode(
+  key: string,
+  encode: () => Promise<EncodeResult>,
+  source: RasterSource,
+  attempt: RasterAttempt = { signal: source.signal }
+): Promise<RasterScoredEncode> {
+  const attempts = source.cache?.attempts;
+  const make = () => {
+    attempt.signal?.throwIfAborted();
+
+    const made = encode().then(async (encoded) => {
+      attempt.signal?.throwIfAborted(); // eg dropped while it encoded
+
+      return {
+        ...encoded,
+        score: await scoreBytes(encoded.bytes, source, attempt),
+      };
+    });
+
+    if (attempts !== undefined) {
+      attempts.set(key, made);
+      void made.catch(() => {
+        if (attempts.get(key) === made) {
+          attempts.delete(key);
+        }
+      });
+    }
+    return made;
+  };
+  const kept = attempts?.get(key);
+
+  return kept === undefined ? make() : kept.catch(() => make());
+}
+
+/**
+ * Returns how many attempts each of a source's running searches may make ahead of need: the
+ * pool's scorers left once each search's needed attempt has its own, split evenly. None
+ * without a pool, whose calling thread scores one pair at a time.
+ *
+ * @param source - The source.
+ */
+function lookaheadFor(source: RasterSource) {
+  const { scorePool, searches, image } = source;
+
+  if (scorePool === undefined) {
+    return 0;
+  }
+
+  const neededPairs = searches.running * (isOpaque(image) ? 1 : 2); // transparency scores on two backgrounds
+
+  return Math.max(0, Math.floor(scorePool.size / neededPairs) - 1);
+}
+
+/**
+ * Searches an encoder's quality range for the smallest encoding that reaches the target,
+ * running ahead of need on the pool's spare scorers.
+ *
+ * @param name - Names the encoder in the source's cache.
  * @param encode - Encodes the source at a quality.
  * @param range - The qualities to search.
  * @param source - The source.
  */
 async function searchedCandidate(
+  name: string,
   encode: (quality: number) => Promise<EncodeResult>,
   range: readonly [number, number],
   source: RasterSource
 ) {
-  const { chosen } = await searchQuality({
-    encode: (quality) => {
-      source.signal?.throwIfAborted();
-      return encode(quality);
-    },
-    score: (encoded) => scoreBytes(encoded.bytes, source),
-    target: source.target,
-    range,
-  });
+  const { searches } = source;
 
-  return toCandidate(chosen.candidate, chosen.score, source);
+  searches.running++;
+  try {
+    await Promise.resolve(); // so the searches a selection starts together all count before any runs ahead
+
+    const { chosen } = await searchQuality({
+      encode: (quality, attempt) =>
+        scoredEncode(
+          `${name} ${quality}`,
+          () => encode(quality),
+          source,
+          attempt
+        ),
+      score: (scored) => Promise.resolve(scored.score),
+      target: source.target,
+      range,
+      lookahead: () => lookaheadFor(source),
+      signal: source.signal,
+    });
+
+    return toCandidate(chosen.candidate, chosen.score, source);
+  } finally {
+    searches.running--;
+  }
 }
 
 /**
  * Encodes and scores a candidate from an encoder with no quality setting.
  *
+ * @param name - Names the encoder in the source's cache.
  * @param encode - Encodes the source.
  * @param source - The source.
  */
 async function losslessCandidate(
+  name: string,
   encode: () => Promise<EncodeResult>,
   source: RasterSource
 ) {
-  source.signal?.throwIfAborted();
+  const scored = await scoredEncode(name, encode, source);
 
-  const encoded = await encode();
-
-  return toCandidate(encoded, await scoreBytes(encoded.bytes, source), source);
+  return toCandidate(scored, scored.score, source);
 }
 
 /**
@@ -220,30 +375,49 @@ function reencodersFor(format: EncodeFormat, source: RasterSource) {
   const { image, scorable } = source;
   const search =
     (
+      name: string,
       encode: (quality: number) => Promise<EncodeResult>,
       range: readonly [number, number]
     ) =>
     () =>
-      searchedCandidate(encode, range, source);
-  const exact = (encode: () => Promise<EncodeResult>) => () =>
-    losslessCandidate(encode, source);
+      searchedCandidate(name, encode, range, source);
+  const exact = (name: string, encode: () => Promise<EncodeResult>) => () =>
+    losslessCandidate(name, encode, source);
 
   if (format === "png") {
     return [
-      exact(() => pngLossless(image)),
+      exact("png lossless", () => pngLossless(image)),
       ...(scorable
-        ? [search((quality) => pngPalette(image, quality), QUALITY_RANGES.png)]
+        ? [
+            search(
+              "png palette",
+              (quality) => pngPalette(image, quality),
+              QUALITY_RANGES.png
+            ),
+          ]
         : []),
     ];
   }
   if (format === "jpeg") {
     return scorable
-      ? [search((quality) => jpegMozjpeg(image, quality), QUALITY_RANGES.jpeg)]
+      ? [
+          search(
+            "jpeg",
+            (quality) => jpegMozjpeg(image, quality),
+            QUALITY_RANGES.jpeg
+          ),
+        ]
       : [];
   }
   if (format === "avif") {
     return scorable
-      ? [search((quality) => avifLossy(image, quality), QUALITY_RANGES.avif)]
+      ? [
+          search(
+            "avif",
+            (quality) => avifLossy(image, quality),
+            QUALITY_RANGES.avif
+          ),
+        ]
       : [];
   }
 
@@ -255,9 +429,19 @@ function reencodersFor(format: EncodeFormat, source: RasterSource) {
   return [
     ...(losslessOnly
       ? []
-      : [search((quality) => webpLossy(image, quality), QUALITY_RANGES.webp)]),
-    ...(losslessOnly || fromPng ? [exact(() => webpLossless(image))] : []),
-    ...(fromPng && scorable ? [search(nearLossless, NEAR_LOSSLESS_STEPS)] : []),
+      : [
+          search(
+            "webp",
+            (quality) => webpLossy(image, quality),
+            QUALITY_RANGES.webp
+          ),
+        ]),
+    ...(losslessOnly || fromPng
+      ? [exact("webp lossless", () => webpLossless(image))]
+      : []),
+    ...(fromPng && scorable
+      ? [search("webp near-lossless", nearLossless, NEAR_LOSSLESS_STEPS)]
+      : []),
   ];
 }
 
@@ -315,5 +499,11 @@ async function rasterCandidates(format: EncodeFormat, source: RasterSource) {
   }
 }
 
-export { createRasterSource, fitToWidth, rasterCandidates, stripCandidate };
-export type { RasterSource };
+export {
+  createRasterCache,
+  createRasterSource,
+  fitToWidth,
+  rasterCandidates,
+  stripCandidate,
+};
+export type { RasterCache, RasterContext, RasterScoredEncode, RasterSource };

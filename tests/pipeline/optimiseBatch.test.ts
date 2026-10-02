@@ -102,7 +102,7 @@ describe("optimiseBatch", () => {
       },
       options: {
         to: "webp",
-        target: 80,
+        target: 70,
         outDir,
         inPlace: false,
         overwrite: false,
@@ -176,7 +176,7 @@ describe("optimiseBatch", () => {
 
     expect(same.files.map((file) => file.status)).toEqual([
       "optimised",
-      "kept-original",
+      "optimised",
     ]); // same mode keeps each input's own name, so these don't clash
   });
 

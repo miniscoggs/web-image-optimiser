@@ -37,7 +37,7 @@ Quality 100 was smaller on every fixture but one, by up to 99% on the gradients,
 
 ## Quality search
 
-For each lossy encoder, `wio` looks for the lowest quality whose output scores at least the target. It tries the highest quality in the range first, and stops there if even that falls short. Otherwise it binary-searches the range, assuming the score rises with quality, then tries one step above the result, because encoders don't follow that rule exactly. The smallest passing attempt wins. A search takes about eight encodes, and scoring each one takes about a second per megapixel.
+For each lossy encoder, `wio` looks for the lowest quality whose output scores at least the target. It tries the highest quality in the range first, and stops there if even that falls short. Otherwise it binary-searches the range, assuming the score rises with quality, then tries one step above the result, because encoders don't follow that rule exactly. The smallest passing attempt wins. A search takes about eight encodes, and scoring each one takes about a second per megapixel. With scoring threads to spare (see `--concurrency`), a search also encodes and scores the qualities it may need next while it waits for the one it needs, but keeps only the attempts it would have made one at a time, so it chooses the same output.
 
 ## Benchmark
 
@@ -76,7 +76,7 @@ Results with sharp 0.35.4 (libvips 8.18.6, libaom 3.14.1, libwebp 1.6.0) on an i
 
 ## Threads
 
-libvips gives libaom as many threads as its own thread count, and libaom then splits an AVIF into tiles to use them. Tiles compress less well, so at the same target the files are larger, and their bytes depend on how many CPUs the machine has. `wio` therefore runs libvips on one thread (`sharp.concurrency(1)`), and gets its parallelism from optimising several files at once, each in a child process of its own, instead.
+libvips gives libaom as many threads as its own thread count, and libaom then splits an AVIF into tiles to use them. Tiles compress less well, so at the same target the files are larger, and their bytes depend on how many CPUs the machine has. `wio` therefore runs libvips on one thread (`sharp.concurrency(1)`), and gets its parallelism from optimising several files at once, each in a child process of its own, instead, and with fewer files than `--concurrency`, from scoring each file's candidates on threads of their own. A child process's libuv pool, the threads that run sharp's encodes and decodes, has half as many threads again as the scores it runs at once (at least libuv's default of 4), so the encodes a search starts ahead of need don't hold up the one it needs.
 
 The same benchmark at libvips' default of 20 threads on this machine needed 485,703 bytes for AVIF at effort 6 at target 80 (3.2% more), and 840,630 at 90 (0.8% more). Small images suffered most: the gradient's AVIF at quality 22 was 1,020 bytes at 20 threads and 659 at one. Encoding took about a fifth of the time: 68.6 s instead of 343.7 s. WebP, JPEG and PNG, palette included, come out byte-identical whatever the thread count.
 

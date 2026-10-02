@@ -55,7 +55,8 @@ type OptimiserErrorCode = (typeof ERROR_CODES)[number];
  *
  * - `W_ICC_KEPT`: the file keeps a colour profile that isn't sRGB, because dropping it would
  *   shift its colours.
- * - `W_NOTICEABLE`: an output scores below 80, so the loss may be noticeable side by side.
+ * - `W_NOTICEABLE`: an output scores below 70, in the "noticeable" band, so the loss is likely to
+ *   show.
  * - `W_NOT_CONVERTED`: no output in the requested format was smaller than the input, so the
  *   file was stripped in its own format (re-encoded in it, when resized to `maxWidth`), or kept.
  * - `W_NOT_RESIZED`: the image is wider than `maxWidth`, but nothing at that width was smaller

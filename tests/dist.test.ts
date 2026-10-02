@@ -61,6 +61,41 @@ describe.skipIf(!existsSync(DIST_DIR))("build", () => {
     );
   });
 
+  it("scores on a pool's threads exactly as on the calling thread", async () => {
+    const metrics = await importBuilt<Metrics>("metrics");
+    const { pairs } = JSON.parse(
+      await readFile(new URL("references.json", PAIR_DIR), "utf8")
+    ) as { pairs: { reference: string; distorted: string }[] };
+    const decode = (file: string) =>
+      metrics.decodeForScoring(fileURLToPath(new URL(file, PAIR_DIR)));
+    const pool = metrics.createScorePool(2);
+
+    try {
+      const decoded = await Promise.all(
+        pairs.map(async (pair) => ({
+          reference: await decode(pair.reference),
+          distorted: await decode(pair.distorted),
+        }))
+      );
+      const pooled = await Promise.all(
+        decoded.map((pair) =>
+          metrics.score(pair.reference, pair.distorted, { pool })
+        )
+      );
+
+      for (const [index, pair] of decoded.entries()) {
+        const onThisThread = await metrics.score(
+          pair.reference,
+          pair.distorted
+        );
+
+        expect(Object.is(pooled[index], onThisThread)).toBe(true);
+      }
+    } finally {
+      await pool.close();
+    }
+  });
+
   it("optimises a batch in child processes", async () => {
     const pipeline = await importBuilt<Pipeline>("pipeline");
     const { folder, inputs } = await copyToTemp([
@@ -95,6 +130,37 @@ describe.skipIf(!existsSync(DIST_DIR))("build", () => {
       await rm(folder, { recursive: true, force: true });
     }
   });
+
+  // rights.jpg is opaque, so its four searches each run ahead on 8 threads; semi-transparent.png
+  // scores on two backgrounds, so 3 threads leave none spare
+  it.each([
+    ["semi-transparent.png", 3],
+    ["rights.jpg", 8],
+  ])(
+    "scores a lone %s on its lane's pool of %i, choosing what one thread would",
+    async (file, concurrency) => {
+      const pipeline = await importBuilt<Pipeline>("pipeline");
+      const { folder, inputs } = await copyToTemp([file]);
+      const outputsAt = async (scorers: number) => {
+        const result = await pipeline.optimiseBatch(
+          inputs,
+          { to: "suite", outDir: path.join(folder, "out"), dryRun: true },
+          { concurrency: scorers }
+        );
+
+        return result.files.map((done) => done.outputs);
+      };
+
+      try {
+        const pooled = await outputsAt(concurrency); // one lane, scoring on that many threads
+
+        expect(pooled).toEqual(await outputsAt(1));
+        expect(pooled[0]).toHaveLength(3);
+      } finally {
+        await rm(folder, { recursive: true, force: true });
+      }
+    }
+  );
 
   it("leaves no temp files when a batch in child processes is aborted", async () => {
     const pipeline = await importBuilt<Pipeline>("pipeline");

@@ -2,14 +2,17 @@ import sharp from "sharp";
 import { inspect } from "../inspect/index.js";
 import readOrFail from "../inspect/readOrFail.js";
 import { createDiffMap, decodeForScoring } from "../metrics/index.js";
+import type { MetricsScorePool } from "../metrics/index.js";
 import type {
   PipelineOutputMethod,
   PipelineWarning,
 } from "../pipeline/index.js";
 import {
+  createRasterCache,
   createRasterSource,
   fitToWidth,
 } from "../pipeline/rasterCandidates.js";
+import type { RasterCache } from "../pipeline/rasterCandidates.js";
 import readInput from "../pipeline/readInput.js";
 import type { PipelineSettings } from "../pipeline/resolveSettings.js";
 import { selectFormat } from "../pipeline/selectRaster.js";
@@ -78,7 +81,20 @@ type DecodedFile = {
  */
 type DecodedOriginal = DecodedFile & { version: string };
 
+/**
+ * What one version of a file's searches at one maximum width made, for its next search.
+ */
+type KeptSearches = {
+  path: string;
+  version: string;
+  maxWidth: number | undefined;
+  cache: RasterCache;
+};
+
+const KEPT_SEARCHES = 3; // each holds its decoded pixels, 48 MB at 12 MP, and every candidate made
+
 let lastOriginal: DecodedOriginal | undefined; // an overlay diffs the same original again and again
+let keptSearches: KeptSearches[] = []; // most recent first; a slider move searches the same file again
 
 /**
  * Reads and decodes a raster image for scoring.
@@ -118,16 +134,49 @@ async function decodeOriginal(filePath: string) {
 }
 
 /**
+ * Returns what earlier searches of a file's version at a maximum width made, or a new cache,
+ * keeping the few searched most recently and dropping any of an older version of the file.
+ *
+ * @param filePath - The file.
+ * @param version - Its version.
+ * @param maxWidth - The maximum width, if any.
+ */
+function searchCacheFor(
+  filePath: string,
+  version: string,
+  maxWidth: number | undefined
+) {
+  const kept = keptSearches.find(
+    (entry) =>
+      entry.path === filePath &&
+      entry.version === version &&
+      entry.maxWidth === maxWidth
+  ) ?? { path: filePath, version, maxWidth, cache: createRasterCache() };
+  const others = keptSearches.filter(
+    (entry) =>
+      entry !== kept && (entry.path !== filePath || entry.version === version)
+  );
+
+  keptSearches = [kept, ...others].slice(0, KEPT_SEARCHES);
+  return kept.cache;
+}
+
+/**
  * Searches a format for the output a suite would choose, apart from the chain rule, carrying
- * the rights a run's would, and writes it.
+ * the rights a run's would, and writes it. What it encodes and scores is kept for the file's
+ * next search, so a slider move pays only for qualities not tried before.
  *
  * @param job - The job.
+ * @param scorePool - The threads to score on, if not the calling thread.
  */
 async function searchJob(
-  job: Extract<PixelJob, { type: "search" }>
+  job: Extract<PixelJob, { type: "search" }>,
+  scorePool: MetricsScorePool | undefined
 ): Promise<PixelReply> {
-  sharp.concurrency(1); // as in optimiseFile, so a search finds what a run would
+  sharp.concurrency(1); // as in optimiseFile, so a search finds what a run would, and a kept candidate is what a new encode would give
+  const version = await fileVersion(job.source); // a save can replace the file
   const file = await readInput(job.source);
+  const unchanged = version === (await fileVersion(job.source)); // a save landing as it's read leaves bytes of either version
   const info = await inspect(file.bytes);
 
   if (info.format === "svg") {
@@ -137,11 +186,14 @@ async function searchJob(
     );
   }
 
+  const cache = unchanged
+    ? searchCacheFor(job.source, version, job.settings.maxWidth)
+    : createRasterCache();
   const source = await createRasterSource(
     file.bytes,
     { ...info, format: info.format },
     job.settings,
-    undefined
+    { cache, scorePool }
   );
   const { chosen, warnings } = await selectFormat(
     source,
@@ -193,11 +245,17 @@ async function diffJob(
  * the calling thread.
  *
  * @param job - The job.
+ * @param scorePool - The threads a search scores on, if not the calling thread.
  * @returns How it went; it never rejects, so a reply can always reach the API.
  */
-async function runPixelJob(job: PixelJob): Promise<PixelReply> {
+async function runPixelJob(
+  job: PixelJob,
+  scorePool?: MetricsScorePool
+): Promise<PixelReply> {
   try {
-    return job.type === "search" ? await searchJob(job) : await diffJob(job);
+    return job.type === "search"
+      ? await searchJob(job, scorePool)
+      : await diffJob(job);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 

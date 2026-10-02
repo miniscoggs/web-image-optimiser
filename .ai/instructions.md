@@ -24,7 +24,7 @@ web-image-optimiser (command `wio`) prepares images for websites. It reads PNG, 
 | `npm run lint`               | ESLint, then a Prettier check                                                                            |
 | `npm run lint:fix`           | ESLint and Prettier with fixes applied                                                                   |
 | `npm test`                   | Every test except the desktop app's end-to-end test, then `npm run typecheck`. The golden tests make it take a few minutes |
-| `npm run test:fast`          | Every test except the golden tests and the desktop app's end-to-end test (about 40 s), then the type-check. Use it while iterating |
+| `npm run test:fast`          | Every test except the golden tests and the desktop app's end-to-end test (under a minute), then the type-check. Use it while iterating |
 | `npm run test:desktop`       | After `npm run build:desktop`, only the desktop app's end-to-end test, `tests/desktop/app.test.ts` (about 25 s), which drives the built app in its own window, or the packaged app whose executable `WIO_DESKTOP_APP` names. On Linux, run it under `xvfb-run` |
 | `npm run typecheck`          | Type-check `src/` and `tests/`, then the UI in `ui/` with `tests/ui/`, which has its own browser `tsconfig` |
 | `npm run test:golden`        | Only the golden tests in `tests/golden/`                                                                 |

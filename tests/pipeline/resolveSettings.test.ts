@@ -6,6 +6,19 @@ import {
 } from "../../src/pipeline/resolveSettings.js";
 import type { PipelineRightsOptions } from "../../src/pipeline/types.js";
 
+describe("resolveSettings", () => {
+  it("defaults to webp at the web target, 70", () => {
+    expect(resolveSettings({})).toEqual({
+      to: "webp",
+      target: 70,
+      inPlace: false,
+      overwrite: false,
+      dryRun: false,
+      stripAll: false,
+    });
+  });
+});
+
 describe("rightsFieldError", () => {
   it.each<[keyof PipelineRightsOptions, string, string | undefined]>([
     ["creator", " Ada Lovelace ", undefined],

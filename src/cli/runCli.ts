@@ -139,7 +139,7 @@ ${modes}
 ${wrapHelp("webp and avif write their best even below the target (W_TARGET_NOT_REACHED); same and suite write only outputs that reach it. SVGs are always optimised as SVG.")}
 
 Targets:
-${wrapHelp("SSIMULACRA 2 scores: visually-lossless (90), excellent (85), high (80) or web (70), or any number from 0 to 100. SVGs always use 90.")}
+${wrapHelp("SSIMULACRA 2 scores: visually-lossless (90), excellent (85), high (80) or web (70, the default), or any number from 0 to 100. SVGs always use 90.")}
 
 Outputs:
 ${wrapHelp("Each output is named after its input, with its format's extension, beside the input or in --out-dir. None is larger than its input: when nothing in the format asked for is smaller, the input is written in its own format, usually only stripped (W_NOT_CONVERTED), or left alone (kept-original). An existing file is skipped (W_OUTPUT_EXISTS) unless --overwrite is given.")}
@@ -274,9 +274,9 @@ function defineOptimise(
     )
     .option(
       "--target <preset|number>",
-      'the lowest quality an output may have (see Targets; default: "high")',
+      'the lowest quality an output may have (see Targets; default: "web")',
       parseTarget,
-      "high"
+      "web"
     )
     .option(
       "--max-width <px>",
@@ -303,7 +303,7 @@ function defineOptimise(
     )
     .option(
       "--concurrency <n>",
-      "files to optimise at once (default: one fewer than the CPUs, at most one per 4 GiB of memory)",
+      "how many scores run at once, one per file or, with fewer files, several per file (default: one fewer than the CPUs, at most one per 4 GiB of memory)",
       parseCount
     )
     .addOption(

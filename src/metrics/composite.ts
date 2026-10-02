@@ -30,10 +30,11 @@ function isOpaque(image: MetricsImage) {
  *
  * @param image - The image to composite.
  * @param background - The background grey level, {@link BLACK} to {@link WHITE}.
+ * @returns The RGB pixels, in memory of their own, so a scoring thread can take it.
  */
 function flatten(image: MetricsImage, background: number) {
   const { data } = image;
-  const rgb = Buffer.allocUnsafe((data.length / 4) * 3);
+  const rgb = Buffer.allocUnsafeSlow((data.length / 4) * 3); // never a slice of the shared pool
 
   for (let source = 0, target = 0; source < data.length; source += 4) {
     const alpha = data[source + 3] ?? 0;

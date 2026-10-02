@@ -13,7 +13,7 @@ wio [optimise] <inputs...> [options]
 | Flag | Meaning |
 | --- | --- |
 | `--to <mode>` | What to write: `webp` (the default), `avif`, `same` (each input's own format) or `suite` (AVIF, WebP and a JPEG or PNG fallback for `<picture>`) |
-| `--target <preset\|number>` | The lowest SSIMULACRA 2 score an output may have: `visually-lossless` (90), `excellent` (85), `high` (80, the default) or `web` (70), or a number from 0 to 100. SVGs always use 90 |
+| `--target <preset\|number>` | The lowest SSIMULACRA 2 score an output may have: `visually-lossless` (90), `excellent` (85), `high` (80) or `web` (70, the default), or a number from 0 to 100. SVGs always use 90 |
 | `--max-width <px>` | Shrink a raster image wider than this to this width, keeping its aspect ratio, before encoding. Narrower images and SVGs keep their size. See [modes.md](./modes.md#max-width) |
 | `--out-dir <dir>` | Write into this folder instead of beside each input |
 | `--in-place` | Let an output replace its own input |
@@ -22,7 +22,7 @@ wio [optimise] <inputs...> [options]
 | `--dry-run` | Work everything out and report it, but write nothing |
 | `--json` | Print one `RunResult` as JSON on stdout |
 | `--ndjson` | Print one JSON event per line on stdout as the run goes |
-| `--concurrency <n>` | How many files to optimise at once. Defaults to one fewer than the CPUs, and at most one per 4 GiB of memory |
+| `--concurrency <n>` | How many quality scores to run at once. A run of at least that many files optimises that many at once, scoring one candidate at a time in each; a run of fewer shares them out, so each file scores its candidates side by side. Defaults to one fewer than the CPUs, and at most one per 4 GiB of memory |
 | `--strip-all` | Remove all metadata, the copyright and licence fields too. It can't be combined with the five flags below |
 | `--creator <name>` | Add a Creator where a file has none |
 | `--credit <text>` | Add a Credit Line where a file has none |

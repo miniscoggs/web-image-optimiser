@@ -108,7 +108,7 @@ describe("wio optimise", () => {
     expect(stderr).toBe("");
     expect(stdout.endsWith("}\n")).toBe(true);
     expect(stdout.trimEnd()).not.toContain("\n");
-    expect(result.options).toMatchObject({ to: "webp", target: 80, outDir });
+    expect(result.options).toMatchObject({ to: "webp", target: 70, outDir });
     expect(result.files).toMatchObject([
       { status: "optimised", width: 6, height: 6 },
       { status: "optimised", outputs: [{ format: "svg" }] },

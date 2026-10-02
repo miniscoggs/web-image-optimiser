@@ -8,6 +8,7 @@ import { outputPath, planWrites, primaryFormats } from "./destination.js";
 import type { BlockedOutput, InputFile } from "./destination.js";
 import failedResult from "./failedResult.js";
 import { createRasterSource } from "./rasterCandidates.js";
+import type { RasterContext } from "./rasterCandidates.js";
 import readInput from "./readInput.js";
 import { resolveSettings } from "./resolveSettings.js";
 import type { PipelineSettings } from "./resolveSettings.js";
@@ -21,9 +22,14 @@ import type {
 } from "./types.js";
 import writeOutputs from "./writeOutputs.js";
 
-const NOTICEABLE_BELOW = 80; // under "very-high", the loss may show side by side
+const NOTICEABLE_BELOW = 70; // under "high", the "noticeable" band: the loss is likely to show
 
 type OutputSize = Pick<PipelineOutput, "width" | "height">;
+
+/**
+ * What {@link optimiseFile} runs with besides its options: the signal, and the pool to score on.
+ */
+type OptimiseFileContext = Pick<RasterContext, "signal" | "scorePool">;
 
 /**
  * Turns a blocked output into the file's result: a failure when it is the input, or a skip
@@ -62,21 +68,25 @@ function blockedResult(
  * @param file - The input.
  * @param info - What `inspect` reported about it.
  * @param settings - The run's settings.
- * @param signal - Aborts the work.
+ * @param context - The signal, and the pool to score on, if any.
  * @returns The outputs, the warnings, and the outputs' size in pixels.
  */
 async function selectOutputs(
   file: InputFile,
   info: InspectResult,
   settings: PipelineSettings,
-  signal: AbortSignal | undefined
+  context: OptimiseFileContext
 ): Promise<{
   chosen: ChosenCandidate[];
   warnings: PipelineWarning[];
   size: OutputSize;
 }> {
   if (info.format === "svg") {
-    const candidate = await selectSvg(file.bytes, info.metadata, signal);
+    const candidate = await selectSvg(
+      file.bytes,
+      info.metadata,
+      context.signal
+    );
     const warnings: PipelineWarning[] =
       settings.to === "same"
         ? []
@@ -99,7 +109,7 @@ async function selectOutputs(
     file.bytes,
     rasterInfo,
     settings,
-    signal
+    context
   );
   const { width, height } = source.image;
 
@@ -155,12 +165,12 @@ function toOutput(
  *
  * @param file - The input.
  * @param settings - The run's settings.
- * @param signal - Aborts the work.
+ * @param context - The signal, and the pool to score on, if any.
  */
 async function optimiseInput(
   file: InputFile,
   settings: PipelineSettings,
-  signal: AbortSignal | undefined
+  context: OptimiseFileContext
 ): Promise<PipelineFileResult> {
   const info = await inspect(file.bytes);
   const base = {
@@ -184,7 +194,7 @@ async function optimiseInput(
     file,
     info,
     settings,
-    signal
+    context
   );
   const unchanged = chosen.every((candidate) =>
     candidate.bytes.equals(file.bytes)
@@ -198,7 +208,7 @@ async function optimiseInput(
   )) {
     warnings.push({
       code: "W_NOTICEABLE",
-      message: `${output.path} scores ${output.score.toFixed(1)}, so the loss may be noticeable side by side`,
+      message: `${output.path} scores ${output.score.toFixed(1)}, so the loss is likely to be noticeable`,
     });
   }
   if (
@@ -226,7 +236,7 @@ async function optimiseInput(
     return blockedResult(planned.blocked, base);
   }
   if (!settings.dryRun) {
-    await writeOutputs(planned.writes, signal);
+    await writeOutputs(planned.writes, context.signal);
   }
   return { ...base, status: "optimised", outputs, warnings };
 }
@@ -261,14 +271,15 @@ async function optimiseInput(
  * @param input - The image file's path.
  * @param options - What to write, and where.
  * @param context - `signal` aborts the work, rejecting with the signal's reason and leaving no
- * temp files.
+ * temp files, and `scorePool` scores the candidates on its threads rather than the calling
+ * thread's.
  * @returns What was written, or would be in a dry run, with any warnings.
  * @throws RangeError when an option is invalid.
  */
 async function optimiseFile(
   input: string,
   options: PipelineOptions = {},
-  context: { signal?: AbortSignal } = {}
+  context: OptimiseFileContext = {}
 ): Promise<PipelineFileResult> {
   const settings = resolveSettings(options);
   let file: InputFile | undefined;
@@ -277,7 +288,7 @@ async function optimiseFile(
   sharp.concurrency(1); // libaom tiles avifs across threads: up to 35% larger, and machine-dependent
   try {
     file = await readInput(input);
-    return await optimiseInput(file, settings, context.signal);
+    return await optimiseInput(file, settings, context);
   } catch (error) {
     if (!(error instanceof OptimiserError)) {
       throw error;

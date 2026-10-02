@@ -37,7 +37,8 @@ type GoldenResult = {
   }[];
 };
 
-const TARGET = 80; // the default
+const TARGET = 70; // the default
+const NOTICEABLE_BELOW = 70;
 const SVG_TARGET = 90;
 const ROLE_ORDER: PipelineOutputRole[] = ["avif", "webp", "fallback"];
 const QUALITY_TOLERANCE = 3;
@@ -184,7 +185,7 @@ async function expectRules(
   }
 
   expect(hasWarning(result, "W_NOTICEABLE")).toBe(
-    outputs.some((output) => output.score < 80)
+    outputs.some((output) => output.score < NOTICEABLE_BELOW)
   );
   expect(hasWarning(result, "W_SVG_SAME_ONLY")).toBe(isSvg && mode !== "same");
   expect(hasWarning(result, "W_NO_RIGHTS")).toBe(

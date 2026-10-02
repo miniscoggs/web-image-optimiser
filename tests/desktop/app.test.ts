@@ -303,8 +303,8 @@ describe("desktop app", { timeout: 120_000 }, () => {
     const webp = pane("WebP");
     const slider = webp.getByRole("slider", { name: "WebP target score" });
 
-    for (let step = 0; step < 10; step += 1) {
-      await slider.press("ArrowRight"); // from the run's web target, 70, to 80
+    for (let step = 0; step < 2; step += 1) {
+      await slider.press("ArrowRight"); // from the run's web target, 70, to 80 in steps of 5
     }
     expect(await slider.inputValue()).toBe("80");
     await webp

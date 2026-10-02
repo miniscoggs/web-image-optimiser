@@ -37,7 +37,7 @@ Only candidates smaller than the input count, measured with the rights they carr
 
 The result is `kept-original`, with nothing written, only when nothing is smaller and the input has no metadata to strip besides its rights, or, for a resized image, when nothing at the new width is smaller.
 
-An output that scores below 80 gets `W_NOTICEABLE`, because the loss may be visible side by side.
+An output that scores below 70 gets `W_NOTICEABLE`, because the loss is likely to be noticeable. At the default target, `web` (70), that happens only to a conversion that couldn't reach it.
 
 ## Max width
 
@@ -82,7 +82,7 @@ An output goes in `--out-dir`, or next to its input, named after the input with 
 
 ## Batches
 
-`wio` runs many files with the same rules, several at once, each in a child process of its own, because scoring blocks the thread it runs on, and each process has its own pool of threads for sharp's work. A crash inside sharp's native code then fails only that file, with `E_INTERNAL`. Each encode itself runs on one thread: libaom splits an AVIF into tiles when given more, which makes it larger at the same quality and makes its bytes depend on the machine's CPU count. So one large image takes longer than it would with every core behind it, but the files come out smaller and the same everywhere. By default (`--concurrency`) it runs one file fewer than the CPU count at once, capped at one per 4 GiB of memory, because scoring a very large image can take that much.
+`wio` runs many files with the same rules, several at once, each in a child process of its own, because scoring blocks the thread it runs on, and each process has its own pool of threads for sharp's work. A crash inside sharp's native code then fails only that file, with `E_INTERNAL`. Each encode itself runs on one thread: libaom splits an AVIF into tiles when given more, which makes it larger at the same quality and makes its bytes depend on the machine's CPU count. So one large image takes longer than it would with every core behind it, but the files come out smaller and the same everywhere. `--concurrency` is how many quality scores run at once, one fewer than the CPU count by default, capped at one per 4 GiB of memory, because scoring a very large image can take that much. A run of that many files or more optimises that many at once, each scoring one candidate at a time. A run of fewer shares the scores out between its files, so each scores its candidates side by side on threads of its own, which speeds up `suite` most, as its formats are searched together. A quality search with threads to spare also tries the qualities it may need next while it waits for the one it needs, keeping only those it would have tried one at a time, so the outputs are the same.
 
 - **Conflicts:** before any work, an input fails with `E_OUTPUT_CONFLICT` when one of its possible outputs could land on another input, or on a path an earlier input's outputs could use. For example, `photo.png` and `photo.jpg` would both write `photo.webp`. Formats come from the first bytes of each file, so a PNG named `photo.jpg` counts as writing `photo.png`. The same file given twice also conflicts. Run such inputs separately, each with its own `--out-dir`.
 - **Unexpected errors:** a bug hit by one file fails that file with `E_INTERNAL`, and the rest of the batch carries on.

@@ -1,5 +1,5 @@
-import { availableParallelism, totalmem } from "node:os";
 import { SCHEMA_VERSION } from "../schema/index.js";
+import { defaultConcurrency, laneScorers } from "./concurrency.js";
 import { createExecutor } from "./executors.js";
 import type { FileTask } from "./executors.js";
 import failedResult from "./failedResult.js";
@@ -19,26 +19,14 @@ import type {
 type BatchFailure = NonNullable<PipelineFileResult["error"]>;
 
 /**
- * A batch's signal, event handler and concurrency, as {@link optimiseBatch} takes them.
+ * A batch's signal, event handler and concurrency (how many scores run at once), as
+ * {@link optimiseBatch} takes them.
  */
 type BatchContext = {
   signal?: AbortSignal;
   onEvent?: (event: PipelineEvent) => void;
   concurrency?: number;
 };
-
-const LANE_MEMORY = 4 * 1024 ** 3; // a lane's wasm scorer grows to 4 GiB on a 26 MP image
-
-/**
- * Returns how many files to optimise at once by default: one fewer than the CPUs, and no more
- * than the memory holds at a lane's worst case.
- */
-function defaultConcurrency() {
-  const byCpu = availableParallelism() - 1;
-  const byMemory = Math.floor(totalmem() / LANE_MEMORY);
-
-  return Math.max(1, Math.min(byCpu, byMemory));
-}
 
 /**
  * Adds up a run's files: how many ended each way, and the bytes of the optimised and
@@ -116,8 +104,8 @@ async function runBatch(
   const files: PipelineFileResult[] = [];
   let next = 0;
 
-  const lane = async () => {
-    const executor = createExecutor();
+  const lane = async (scorers: number) => {
+    const executor = createExecutor(scorers);
 
     try {
       for (
@@ -159,9 +147,8 @@ async function runBatch(
       files: tasks.length,
     });
 
-    const lanes = Array.from(
-      { length: Math.min(concurrency, tasks.length) },
-      lane
+    const lanes = laneScorers(concurrency, tasks.length).map((scorers) =>
+      lane(scorers)
     );
     const settled = await Promise.allSettled(lanes);
     const failure = settled.find((outcome) => outcome.status === "rejected");

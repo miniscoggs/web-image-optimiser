@@ -7,7 +7,9 @@ import {
   isScorable,
   score,
   type MetricsImage,
+  type MetricsScorePool,
 } from "../../src/metrics/index.js";
+import scoreSsimulacra2 from "../../src/metrics/ssimulacra2.js";
 
 const PHOTO = fileURLToPath(
   new URL("../../fixtures/photo-butterfly.jpg", import.meta.url)
@@ -52,6 +54,30 @@ function mapPixels(
     data.set(pixel([...data.subarray(offset, offset + 4)]), offset);
   }
   return { ...image, data };
+}
+
+/**
+ * Creates a pool that scores on the calling thread, recording what it's asked to score.
+ */
+function recordingPool() {
+  const calls: Parameters<MetricsScorePool["score"]>[] = [];
+  const pool: MetricsScorePool = {
+    size: 2,
+    score: (pair, options) => {
+      calls.push([pair, options]);
+      return Promise.resolve(
+        scoreSsimulacra2(
+          pair.reference,
+          pair.distorted,
+          pair.width,
+          pair.height
+        )
+      );
+    },
+    close: () => Promise.resolve(),
+  };
+
+  return { pool, calls };
 }
 
 describe("score", () => {
@@ -133,6 +159,43 @@ describe("score", () => {
       );
 
       await expect(score(reference, distorted)).resolves.toBeLessThan(90);
+    });
+
+    it("sends a pool each background's pair, giving it their memory and whether it's ahead of need", async () => {
+      const reference = makeImage(32, (column, row) => [
+        128,
+        128,
+        128,
+        64 + pattern(column, row),
+      ]); // differs from the opaque copy on both backgrounds
+      const distorted = mapPixels(
+        reference,
+        ([red = 0, green = 0, blue = 0]) => [red, green, blue, 255]
+      );
+      const { pool, calls } = recordingPool();
+      const { signal } = new AbortController();
+      const speculative = () => true;
+      const onThisThread = await score(reference, distorted);
+
+      await expect(
+        score(reference, distorted, { pool, signal, speculative })
+      ).resolves.toBe(onThisThread);
+      expect(calls).toHaveLength(2);
+      for (const [pair, options] of calls) {
+        expect(Object.keys(pair).toSorted()).toEqual([
+          "distorted",
+          "height",
+          "reference",
+          "width",
+        ]); // no rgba pixels to copy
+        expect(pair).toMatchObject({ width: 32, height: 32 });
+        expect(pair.reference).toHaveLength(32 * 32 * 3);
+        expect(options).toEqual({
+          signal,
+          transfer: [pair.reference.buffer, pair.distorted.buffer],
+          speculative,
+        });
+      }
     });
 
     it("catches a difference that only shows on white", async () => {

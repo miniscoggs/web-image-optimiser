@@ -235,7 +235,7 @@ describe("ComparisonViewer tools", () => {
     );
   }
 
-  it("marks the presets on each raster pane's slider, from 50 to 100, at the run's target", () => {
+  it("marks the presets on each raster pane's slider, from 50 to 100 in steps of 5, at the run's target", () => {
     stubWio();
     openTooled();
 
@@ -243,7 +243,12 @@ describe("ComparisonViewer tools", () => {
       name: "WebP target score",
     });
 
-    expect(slider).toMatchObject({ min: "50", max: "100", value: "70" });
+    expect(slider).toMatchObject({
+      min: "50",
+      max: "100",
+      step: "5",
+      value: "70",
+    });
 
     const listId = slider.getAttribute("list") ?? "";
     const options = [
@@ -274,7 +279,7 @@ describe("ComparisonViewer tools", () => {
     });
 
     openTooled();
-    moveSlider("WebP", 78);
+    moveSlider("WebP", 75);
     moveSlider("WebP", 80);
     await act(() => vi.advanceTimersByTimeAsync(149));
     expect(fetchMock).not.toHaveBeenCalled();

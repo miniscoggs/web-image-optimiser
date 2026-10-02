@@ -102,7 +102,7 @@ A run emits `run-start` first and `run-done` last, and each file's `file-start` 
 | Warning | Meaning |
 | --- | --- |
 | `W_ICC_KEPT` | A colour profile that isn't sRGB was kept, because removing it would shift the colours |
-| `W_NOTICEABLE` | An output scores below 80, so the loss may be visible side by side |
+| `W_NOTICEABLE` | An output scores below 70, so the loss is likely to be noticeable |
 | `W_NOT_CONVERTED` | Nothing in the requested format was smaller, so the file stays in its own format: stripped, re-encoded at the new width when `maxWidth` shrank it, or kept |
 | `W_NOT_RESIZED` | The image is wider than `maxWidth`, but nothing at that width was smaller than the input and reached the target, so the file was kept as it is |
 | `W_NO_RIGHTS` | The outputs, or the kept original, carry none of Creator, Credit Line, Copyright Notice, Web Statement of Rights and Licensor URL. Not given with `stripAll`, or for SVG. The CLI's message names the flags that add the fields, and `--strip-all` |

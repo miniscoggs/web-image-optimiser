@@ -18,7 +18,7 @@ description: Optimises images for websites with the `wio` CLI. It strips metadat
 
 SVGs always stay SVG. Without `--out-dir`, an output that would replace its input fails with `E_OUTPUT_IS_INPUT` unless `--in-place` is given. That happens to every file in `same` mode, every SVG, a file already in the format asked for (a WebP in `webp` mode, an AVIF in `avif`, either in `suite`), most JPEGs and PNGs in `suite`, and a file nothing in the asked format beats (`W_NOT_CONVERTED`). So pass `--out-dir` unless replacing the originals was asked for.
 
-`--target` is the lowest quality allowed: `high` (80, the default: not noticeable side by side), `excellent` (85), `visually-lossless` (90), `web` (70), or a number. Don't lower it unless asked.
+`--target` is the lowest quality allowed: `web` (70, the default: barely noticeable side by side), `high` (80: not noticeable side by side), `excellent` (85), `visually-lossless` (90), or a number. Raise it to `high` or above when the images must hold up to close inspection, such as product shots or artwork shown large, and don't lower it unless asked.
 
 `--max-width <px>` shrinks wider images to that width before encoding, keeping their aspect ratio; narrower images and SVGs keep their size. Use it for camera-sized photos, at twice the widest CSS width the image is shown at, eg `--max-width 1600` for one shown at most 800 px wide. Each output reports its own `width` and `height`, and `wio compare` can't score a shrunk output against its original, since it needs images of one size.
 
@@ -40,7 +40,7 @@ wio compare images/photo.jpg optimised/photo.webp --json
 
 A folder gives the images at its top level; `--recursive` adds its subfolders, which `--out-dir` mirrors. Quote glob patterns: `"src/**/*.png"`. A folder scan leaves out the files this mode writes, so a re-run doesn't treat its own outputs as inputs.
 
-Scoring takes about a second per megapixel, and each format's search scores several times, so a 12 MP photo can take minutes, most of all in `avif` and `suite`. `--ndjson` prints one event per line as files finish.
+Scoring takes about a second per megapixel, and each format's search scores several times, so a 12 MP photo can take minutes, most of all in `avif` and `suite`. `--ndjson` prints one event per line as files finish. Pass every image to one `wio` rather than running several side by side: a run already spreads its scores over the CPUs, even for a single image, and runs side by side can run out of memory.
 
 ## Reading the result
 
@@ -73,7 +73,7 @@ With `--json`, stdout holds exactly one `RunResult`. Everything else goes to std
 | `W_NOT_RESIZED` | Nothing at `--max-width` was smaller than the file, so it was kept as it is. There's nothing to retry |
 | `W_NO_RIGHTS` | The file has no copyright or licence fields. Ask the user for the values to add with the flags above, or whether to pass `--strip-all`. Never invent a creator, copyright or URL |
 | `W_RIGHTS_NOT_ADDED` | The file is already smaller than any output carrying the fields named, so they were left out. There's nothing to retry: tell the user |
-| `W_TARGET_NOT_REACHED`, `W_NOTICEABLE` | The file written is below the target, or below 80. Mention it |
+| `W_TARGET_NOT_REACHED`, `W_NOTICEABLE` | The file written is below the target, or below 70. Mention it |
 | `E_ANIMATED`, `E_UNSUPPORTED_FORMAT`, `E_DECODE` | `wio` can't optimise this file. Leave it alone |
 
 ## Exit codes

@@ -122,7 +122,7 @@ function resolveRights(rights: PipelineRightsOptions | undefined) {
  * `stripAll` comes with rights fields.
  */
 function resolveSettings(options: PipelineOptions): PipelineSettings {
-  const { to = "webp", target = "high", maxWidth } = options;
+  const { to = "webp", target = "web", maxWidth } = options;
   const score =
     typeof target === "number" ? target : PIPELINE_TARGET_PRESETS[target];
   const rights = resolveRights(options.rights);

@@ -16,6 +16,7 @@ type TargetSliderProps = {
 
 const MIN = 50;
 const MAX = 100;
+const STEP = 5; // one point makes little visible difference, and every preset sits on a step
 
 const PRESET_MARKS = Object.entries(PIPELINE_TARGET_PRESETS)
   .map(([name, value]) => ({ name, value }))
@@ -44,7 +45,7 @@ function TargetSlider({
           type="range"
           min={MIN}
           max={MAX}
-          step={1}
+          step={STEP}
           list={listId}
           value={target}
           aria-label={`${title} target score`}

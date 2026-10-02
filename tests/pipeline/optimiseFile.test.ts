@@ -9,6 +9,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { MetricsScorePool } from "../../src/metrics/index.js";
+import scoreSsimulacra2 from "../../src/metrics/ssimulacra2.js";
 import { optimiseFile } from "../../src/pipeline/index.js";
 import type {
   PipelineFileResult,
@@ -152,12 +154,16 @@ describe("optimiseFile", () => {
     it("fails once chosen when the strip fallback would replace the input", async () => {
       const input = await copyFixture("exif.avif");
       const before = await readFile(input);
-      const result = await optimiseFile(input, { to: "webp" });
+      const result = await optimiseFile(input, { to: "webp", target: "high" }); // at web, a webp is smaller
 
       expect(result.error?.code).toBe("E_OUTPUT_IS_INPUT");
       expect(await list()).toEqual(["exif.avif"]);
 
-      const inPlace = await optimiseFile(input, { to: "webp", inPlace: true });
+      const inPlace = await optimiseFile(input, {
+        to: "webp",
+        target: "high",
+        inPlace: true,
+      });
 
       expect(inPlace).toMatchObject({
         status: "optimised",
@@ -251,17 +257,27 @@ describe("optimiseFile", () => {
       ]);
     });
 
-    it("warns with W_NOTICEABLE when an output scores below 80", async () => {
+    it("targets web by default, with no W_NOTICEABLE from 70", async () => {
       const input = fixturePath("display-p3.jpg");
-      const result = await optimiseFile(input, {
-        target: "web",
-        outDir: folder,
-      });
+      const result = await optimiseFile(input, { outDir: folder });
 
       expect(result.outputs[0]?.score).toBeGreaterThanOrEqual(70);
       expect(result.outputs[0]?.score).toBeLessThan(80);
       expect(result.outputs[0]?.verdict).toBe("high");
-      expect(warningCodes(result)).toEqual(["W_NO_RIGHTS", "W_NOTICEABLE"]);
+      expect(warningCodes(result)).toEqual(["W_NO_RIGHTS"]);
+    });
+
+    it("warns with W_NOTICEABLE when an output scores below 70", async () => {
+      const input = fixturePath("rights.jpg"); // its webp at quality 30 scores 55
+      const result = await optimiseFile(input, {
+        target: 60,
+        outDir: folder,
+      });
+
+      expect(result.outputs[0]?.score).toBeGreaterThanOrEqual(60);
+      expect(result.outputs[0]?.score).toBeLessThan(70);
+      expect(result.outputs[0]?.verdict).toBe("noticeable");
+      expect(warningCodes(result)).toEqual(["W_NOTICEABLE"]);
     });
 
     it("rejects an unknown mode or target", async () => {
@@ -322,6 +338,33 @@ describe("optimiseFile", () => {
       const result = await optimiseFile(input, { outDir });
 
       expect(result.error?.code).toBe("E_WRITE");
+    });
+  });
+
+  describe("scoring", () => {
+    it("scores on the pool it's given, choosing what it would without one", async () => {
+      const input = fixturePath("rights.jpg");
+      const options = { to: "webp", outDir: folder, dryRun: true } as const;
+      let pairs = 0;
+      const scorePool: MetricsScorePool = {
+        size: 2,
+        score: (pair) => {
+          pairs++;
+          return Promise.resolve(
+            scoreSsimulacra2(
+              pair.reference,
+              pair.distorted,
+              pair.width,
+              pair.height
+            )
+          );
+        },
+        close: () => Promise.resolve(),
+      };
+      const pooled = await optimiseFile(input, options, { scorePool });
+
+      expect(pairs).toBeGreaterThan(0);
+      expect(pooled).toEqual(await optimiseFile(input, options));
     });
   });
 
